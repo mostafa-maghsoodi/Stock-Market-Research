@@ -1,12 +1,15 @@
-# Amendment Ledger v1 — Draft Contract
+# Amendment Ledger v1 — Final Contract
 
 ## 1. Status, purpose, and authority
 
-This draft defines, but does not create, an approved ledger JSON artifact. The
-ledger is separately tracked, immutable, versioned, independently approved
-authority—not an embedded Architecture v3.2 section. Any architecture summary
-is informational. Architecture v3.1 remains immutable historical evidence and
-the exact v3.2 document remains draft until researcher approval.
+**Status:** FINAL — approval state is external to these bytes. This document
+does not self-attest approval; governing approval is established externally
+under the applicable approved approval mechanism. This contract defines, but
+does not create, a ledger JSON artifact. Final status is separate from
+implementation, approval, and freeze/publication status. The ledger is
+separately tracked, immutable, versioned, independently approved authority—not
+an embedded Architecture v3.2 section. Any architecture summary is
+informational. Architecture v3.1 remains immutable historical evidence.
 
 ## 2. Exact closed schemas
 

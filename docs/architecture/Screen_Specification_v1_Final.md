@@ -1,8 +1,11 @@
-# Screen Specification v1 — Draft Contract
+# Screen Specification v1 — Final Contract
 
 ## 1. Status and authority
 
-Documentation only: not implemented, approved, or frozen. ADR-001 approves the
+**Status:** FINAL — approval state is external to these bytes. This document
+does not self-attest approval; governing approval is established externally
+under the applicable approved approval mechanism. It is not implemented or
+frozen. ADR-001 establishes the
 v3.2 successor direction, but the exact Architecture v3.2 bytes govern only
 following external researcher approval of their immutable identity. Architecture
 v3.1 remains immutable historical evidence. Entry000 inclusion does not create
@@ -289,7 +292,7 @@ RankingReference = {
 ```
 
 All accounting choices and proxies must be resolved in an approved frozen
-instance; this draft supplies no defaults. The two ranking scopes are exact,
+instance; this document supplies no defaults. The two ranking scopes are exact,
 ordered, and immutable Run 2 semantics.
 
 ## 8. Dates, vintage, code, and environment

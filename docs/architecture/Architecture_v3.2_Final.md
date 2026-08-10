@@ -1,19 +1,21 @@
-# Architecture v3.2 — Draft
+# Architecture v3.2 — Final
 
 ## 1. Identity and status
 
-**Status:** DRAFT — not final, not frozen
-**Authority:** ADR-001 approves v3.2 as the post-Run-2 successor direction.
-This exact document becomes governing authority only after the researcher
-explicitly approves its immutable repository/path/commit/blob/SHA-256 identity.
-Until that external human approval event, it remains draft text.
+**Status:** FINAL — approval state is external to these bytes.
+**Authority:** ADR-001 establishes v3.2 as the post-Run-2 successor direction.
+This document does not self-attest approval. Governing approval is established
+externally under the applicable approved approval mechanism for its immutable
+repository/path/commit/blob/SHA-256 identity. Final status is separate from
+implementation and freeze status; this document performs no freeze.
 **Stage:** post-Run-2, before Entry 000 and before the Batch 2 data audit.
 **Outcome attestation:** no realized strategy outcome was examined in preparing
-this draft.
+these Final bytes.
 
-Architecture v3.2 is the proposed post-Run-2 successor architecture.
-Architecture v3.1 remains immutable historical evidence. Nothing in this draft
-rewrites v3.1 or represents a later decision as part of the original source.
+Architecture v3.2 is the post-Run-2 successor architecture subject.
+Architecture v3.1 remains immutable historical evidence. Nothing in these
+Final bytes rewrites v3.1 or represents a later decision as part of the
+original source.
 
 ## 2. Provenance from Architecture v3.1
 
@@ -113,7 +115,7 @@ Run 1 operationalized v3.1 without silently changing its research objective:
 - market-role alignment and a survivorship-complete universe remained blocked
   rather than being guessed.
 
-These are clarifications, extensions, and specification-gap fills. This draft
+These are clarifications, extensions, and specification-gap fills. This document
 claims no exact v3.1 supersession from Run 1.
 
 ## 6. Run 2 reconciliation
@@ -133,14 +135,14 @@ Run 2 added portfolio/outcome binding governance:
 - a universal authorized outcome-execution boundary.
 
 Run 2 does not license outcome evaluation before Entry 001 or OPEN. Its
-preflight/ranking preparation boundary is outcome-free. This draft claims no
+preflight/ranking preparation boundary is outcome-free. This document claims no
 exact v3.1 supersession from Run 2.
 
 ## 7. Batch 1 approved intent
 
-The proposed detailed record of the separately approved Q1/Q2/Q3/Q5/Q8 intent
-is `docs/research/Batch1_Research_Intent_Draft.md`. It becomes authoritative
-only when the researcher approves its exact immutable identity.
+The detailed record of the separately approved Q1/Q2/Q3/Q5/Q8 intent
+is `docs/research/Batch1_Research_Intent_Final.md`. Its governing approval is
+established externally for its exact immutable identity.
 
 - **Q1:** the screen finds operating-company candidates combining attractive
   valuation, strong business economics, and improving fundamentals; it is not a
@@ -156,7 +158,7 @@ only when the researcher approves its exact immutable identity.
 
 ## 8. Unresolved decision ledger
 
-The following remain unresolved and must not acquire defaults in this draft:
+The following remain unresolved and must not acquire defaults in this document:
 
 | ID | Decision | Resolution authority/time |
 |---|---|---|
@@ -196,7 +198,7 @@ The primary population must be practically tradable at each decision date and
 must include conceptually a broad size floor, price floor, liquidity floor, and
 listing-seasoning requirement. Exact thresholds, fields, windows, currencies,
 timestamp conventions, adjustment conventions, and seasoning duration remain
-unresolved. Tiered or co-primary universes are not authorized by this draft.
+unresolved. Tiered or co-primary universes are not authorized by this document.
 
 ## 12. Historical security-master boundary
 
@@ -247,8 +249,8 @@ The separate Screen Specification governs only:
 It is not a BUY list, portfolio specification, or outcome-evaluation
 specification. It cannot consume, calculate, inspect, summarize, serialize, or
 expose realized outcomes. Screen construction consumes no outcome-research slot
-and requires no OPEN/CLOSE. The detailed proposed contract is
-`docs/architecture/Screen_Specification_v1_Draft.md`.
+and requires no OPEN/CLOSE. The detailed contract is
+`docs/architecture/Screen_Specification_v1_Final.md`.
 
 ## 18. Ranking, candidate-set, and regeneration identities
 
@@ -278,8 +280,8 @@ Entry 000 becomes a versioned package, not an arbitrary text-blob hash. It must
 distinguish original v3.1 historical components from v3.2 current authority and
 bind deterministic order, paths, roles, SHA-256 identities, Git provenance,
 Run 1 and Run 2 commits, ADR approvals, Batch 1 record, amendment ledger, and
-no-outcome attestations. The draft package contract is
-`docs/architecture/Entry000_Package_v2_Draft.md`. This draft performs no freeze.
+no-outcome attestations. The Final package contract is
+`docs/architecture/Entry000_Package_v2_Final.md`. This document performs no freeze.
 
 ## 20. Entry 001 full-experiment semantics
 
@@ -324,7 +326,7 @@ Governed inputs bind a research-vintage bundle, source-native vintage, source
 kind and ID, exact content digest, audit-artifact digest, source-manifest digest,
 and approved provenance class. A held-return manifest additionally binds the
 economic-return convention. No runtime vintage string may override frozen
-lineage. No vendor is selected by this draft.
+lineage. No vendor is selected by this document.
 
 ## 25. LLM evidence-sidecar boundary
 
@@ -362,7 +364,7 @@ schemas. Unsupported capability is not permission to approximate silently.
 | Version | Status | Change |
 |---|---|---|
 | 3.1 | immutable historical source | closed pre-return architecture |
-| 3.2 Draft | draft | records ADR-001 through ADR-004, Run 1/2 reconciliation, and Batch 1 intent |
+| 3.2 Final | Final; approval external | records ADR-001 through ADR-004, Run 1/2 reconciliation, and Batch 1 intent |
 
 ## 30. Informational amendment summary; separate ledger controls
 

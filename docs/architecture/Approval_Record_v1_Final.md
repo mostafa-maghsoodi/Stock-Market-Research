@@ -1,10 +1,13 @@
-# Approval Record v1 — Draft Contract
+# Approval Record v1 — Final Contract
 
 ## 1. Status and purpose
 
-This is a documentation-only, closed contract. It creates no approval record
-and grants no approval. Architecture v3.1 remains immutable historical evidence;
-the exact Architecture v3.2 document remains draft until approved.
+**Status:** FINAL — approval state is external to these bytes. This document
+does not self-attest approval; governing approval is established externally
+under the applicable approved approval mechanism. This is a documentation-only,
+closed contract. It creates no approval record and grants no approval.
+Architecture v3.1 remains immutable historical evidence. Final status is
+separate from implementation and freeze status.
 
 Preliminary researcher authorization may direct preparation of a subject and
 may occur before an Approval Record exists, but it is not governing approval.
