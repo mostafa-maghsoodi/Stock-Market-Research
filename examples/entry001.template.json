@@ -1,0 +1,53 @@
+{
+  "architecture_version": "3.1",
+  "data_audit": {
+    "status": "REPLACE_WITH_COMPLETED_AUDIT_ARTIFACT_AND_HASH"
+  },
+  "investable_universe": {
+    "status": "UNRESOLVED",
+    "eligible_exchanges": [],
+    "security_types": [],
+    "minimum_price": null,
+    "minimum_adv": null
+  },
+  "sample_boundaries": {
+    "development": [null, null],
+    "holdout_a": [null, null],
+    "holdout_b": [null, null]
+  },
+  "proxy_registry": [],
+  "pit_conventions": {
+    "restatement_policy": "first_reported",
+    "availability_timestamp": "actual public filing or announcement timestamp"
+  },
+  "missing_data_policy": "UNRESOLVED",
+  "sector_history_convention": "UNRESOLVED",
+  "estimates_decision": "UNRESOLVED_PENDING_VINTAGE_AUDIT",
+  "research_provenance": [],
+  "primary_signal_metric": "UNRESOLVED",
+  "primary_portfolio_metric": "UNRESOLVED",
+  "statistical_decision_procedure": "UNRESOLVED",
+  "multiplicity_procedure": "UNRESOLVED",
+  "transaction_cost_model": {
+    "convention": "traded_notional_times_one_way_bps",
+    "one_way_cost_bps": null
+  },
+  "specification_budget": null,
+  "specification_counting_rules": "UNRESOLVED",
+  "construct_kill_conditions": "UNRESOLVED",
+  "system_kill_condition": "UNRESOLVED",
+  "rule_17": {
+    "percentile": "numpy.percentile(delta_values, [25, 75], method=linear)",
+    "minimum_k": 5,
+    "pass": "Q25 > 0 and Q25 > IQR"
+  },
+  "rebalance_frequency": "UNRESOLVED",
+  "holding_period": "UNRESOLVED",
+  "robustness_alternatives": [],
+  "environment_manifest": {
+    "status": "REPLACE_WITH_OUTPUT_FROM_GRAHAM_RESEARCH_MANIFEST"
+  },
+  "source_control": {
+    "status": "REPLACE_WITH_OUTPUT_FROM_GRAHAM_RESEARCH_MANIFEST_REPOSITORY"
+  }
+}
