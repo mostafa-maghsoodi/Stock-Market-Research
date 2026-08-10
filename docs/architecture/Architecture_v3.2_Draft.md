@@ -1,0 +1,317 @@
+# Architecture v3.2 — Draft
+
+## 1. Identity and status
+
+**Status:** DRAFT — not final, not frozen
+**Authority:** approved successor direction under ADR-001; this draft becomes
+governing authority only when the researcher approves its completed text.
+**Stage:** post-Run-2, before Entry 000 and before the Batch 2 data audit.
+**Outcome attestation:** no realized strategy outcome was examined in preparing
+this draft. No Entry 000 or Entry 001 artifact has been frozen.
+
+Architecture v3.2 is the governing post-Run-2 successor architecture.
+Architecture v3.1 remains immutable historical evidence. Nothing in this draft
+rewrites v3.1 or represents a later decision as part of the original source.
+
+## 2. Provenance from Architecture v3.1
+
+The historical source components are:
+
+1. `docs/architecture/Architecture_v3.1_Final.md`, the searchable historical
+   representation; and
+2. `docs/architecture/Architecture_v3.1_Final.pdf`, the preserved historical
+   artifact.
+
+Their exact identities belong in the future Entry 000 package manifest. Textual
+equivalence between the two formats is not asserted merely because their titles
+match. Both files remain unchanged. The implementation lineage is Run 1 commit
+`587051d` followed by Run 2 commit
+`be1f9973e0aeeaaca80ab8f100a3de9a7a7c72db`.
+
+## 3. Architecture authority hierarchy
+
+For post-Run-2 work, authority descends in this order:
+
+1. explicitly approved researcher decisions and ADRs;
+2. Architecture v3.2, once approved;
+3. approved subordinate contracts, including the Screen Specification;
+4. the frozen Entry 000 architecture package;
+5. a frozen Screen Specification for screen production;
+6. the full frozen Entry 001 for outcome evaluation;
+7. executable schemas and code, which implement but cannot invent authority.
+
+Architecture v3.1 remains the historical predecessor and provenance source.
+Where v3.2 does not amend it, its principles are inherited. Implementation
+behavior alone never amends either architecture.
+
+## 4. Amendment methodology
+
+Every later change must have an approval identifier, classify itself as a
+clarification, extension, gap fill, or exact supersession, cite the affected
+rule, state its effective boundary, and identify required contract changes.
+Exact supersession requires both the old and replacement rule. Absence of a
+current implementation is not supersession. Historical source files are never
+edited to make later approval appear contemporaneous.
+
+## 5. Run 1 reconciliation
+
+Run 1 operationalized v3.1 without silently changing its research objective:
+
+- PIT facts acquired explicit availability, reporting-period, frequency,
+  restatement, and source-provenance semantics.
+- The Proxy Registry received a closed executable representation and digest.
+- Entry 001 received a versioned, strict schema and unresolved-value gate.
+- Ranking received deterministic rank, missingness, weighting, and tie rules.
+- Rank IC became explicitly cross-sectional by decision date; standalone,
+  nested, and leave-one-out became distinct inputs.
+- environment and source-control attestations became load-bearing.
+- live/LLM output was separated from historically eligible research.
+- market-role alignment and a survivorship-complete universe remained blocked
+  rather than being guessed.
+
+These are clarifications, extensions, and specification-gap fills. This draft
+claims no exact v3.1 supersession from Run 1.
+
+## 6. Run 2 reconciliation
+
+Run 2 added portfolio/outcome binding governance:
+
+- immutable governed fact and held-return source manifests;
+- research-vintage, source-native-vintage, content, audit, and manifest binding;
+- an independent held-return source;
+- a content-bound ranked artifact and ranking-configuration digest;
+- exact portfolio timing and economic-return convention attestation;
+- deterministic, outcome-free preflight;
+- a durable, append-only OPEN/CLOSE/blocked register;
+- atomic research-budget reservation at OPEN;
+- result lineage copied from a verified OPEN;
+- pre-OPEN blocking of nonresearch portfolio outcome classes; and
+- a universal authorized outcome-execution boundary.
+
+Run 2 does not license outcome evaluation before Entry 001 or OPEN. Its
+preflight/ranking preparation boundary is outcome-free. This draft claims no
+exact v3.1 supersession from Run 2.
+
+## 7. Batch 1 approved intent
+
+The authoritative detailed record is
+`docs/research/Batch1_Research_Intent_Draft.md`.
+
+- **Q1:** the screen finds operating-company candidates combining attractive
+  valuation, strong business economics, and improving fundamentals; it is not a
+  BUY list.
+- **Q2:** V1 covers primary-listed common operating-company equities and
+  excludes ADRs, secondary listings, preferred securities, and ETFs/funds.
+- **Q3:** the historical eligible population is full and date-effective;
+  current-survivor-only construction is inadmissible.
+- **Q5:** broad size, price, liquidity, and seasoning rules are required in
+  concept; exact operational values remain unresolved pending Batch 2.
+- **Q8:** Valuation, Business Economics, and Fundamental Change are all required.
+  Valuation is essential and cannot be silently dropped.
+
+## 8. Unresolved decision ledger
+
+The following remain unresolved and must not acquire defaults in this draft:
+
+| ID | Decision | Resolution authority/time |
+|---|---|---|
+| U-001 | data vendor and exact source products | researcher after Batch 2 evidence |
+| U-002 | universe thresholds, fields, windows, currencies, timestamps, adjustments, seasoning duration | researcher after Batch 2 |
+| U-003 | exact accounting normalization and denominator thresholds | researcher after data audit |
+| U-004 | exact surviving Proxy Registry formulas | audit plus researcher approval |
+| U-005 | sample boundaries | valid PIT coverage after audit |
+| U-006 | exact specification budget | researcher before Entry 001/outcomes |
+| U-007 | portfolio timing, costs, terminal/cash rules, and statistical procedures | researcher before Entry 001/outcomes |
+| U-008 | valid historical market-price/EV construction and market-role alignment | Batch 2 evidence and researcher approval |
+
+Unsupported capability must return to the researcher; it cannot trigger silent
+substitution or narrowing.
+
+## 9. Historical PIT-data principles
+
+Historical inputs must reproduce what was knowable at each decision timestamp.
+Material values require source provenance, actual availability timestamps,
+explicit first-reported/restated identity, and an approved restatement policy.
+Backfilled data, current classifications, current prices, nearest-date snapping,
+and later survivor membership cannot masquerade as contemporaneous facts.
+Disappointing coverage narrows the valid period transparently; it never lowers
+the PIT standard.
+
+## 10. Survivorship-complete universe requirement
+
+Every historically eligible security remains representable after delisting,
+bankruptcy, acquisition, ticker change, exchange change, or disappearance. A
+universe derived from current survivors is invalid. Eligibility must be computed
+from date-effective security and listing facts, not future status.
+
+## 11. Practical-investability intent
+
+The primary population must be practically tradable at each decision date and
+must include conceptually a broad size floor, price floor, liquidity floor, and
+listing-seasoning requirement. Exact thresholds, fields, windows, currencies,
+timestamp conventions, adjustment conventions, and seasoning duration remain
+unresolved. Tiered or co-primary universes are not authorized by this draft.
+
+## 12. Historical security-master boundary
+
+A future governed security-master layer must provide stable security identity,
+date-effective listing and security types, primary-listing status, ticker and
+exchange history, and corporate terminal events. It must separately identify
+eligibility facts and terminal-return accounting. The current implementation
+does not supply this survivorship-complete layer; Batch 2 must audit capability
+before its schema is finalized.
+
+## 13. Valuation historical-market-data requirement
+
+Valuation is essential to the first screen. A valid historical valuation proxy
+must align an approved price, market capitalization, or enterprise value with
+accounting facts knowable at the same decision time and must bind source,
+currency, adjustment, shares/capitalization, and staleness semantics. Current
+prices may not stand in for historical prices. If valid capability is absent,
+the issue returns to the researcher; Valuation is not silently removed.
+
+## 14. Market-role timing/alignment blocker
+
+Market-derived roles require an audited observation timestamp, decision cutoff,
+market session and timezone, adjustment semantics, and exact alignment rule.
+Calendar-date equality alone does not prove economic alignment. Until those
+rules are approved, market-role proxies remain unfreezable.
+
+## 15. Accounting normalization boundary
+
+Accounting field identity, unit/currency treatment, fiscal-period selection,
+restatement policy, numerator/denominator construction, sign treatment,
+near-zero/negative-denominator behavior, and missingness must be explicit and
+PIT. No unresolved convention or denominator threshold is selected here.
+
+## 16. Proxy Registry boundary
+
+Every admitted proxy must have an exact identity, construct/dimension, formula,
+source fields and roles, temporal alignment, accounting normalization,
+transformations, direction, missingness/exclusion rules, economic rationale,
+provenance, implementation identity, and digest participation. The registry is
+frozen for a screen; a budget is not a substitute for enumerating proxies.
+
+## 17. Screen Specification stage
+
+The separate Screen Specification governs only:
+
+`historical universe → PIT facts → accounting semantics → Proxy Registry → ranking configuration → deterministic ranked candidate set`
+
+It is not a BUY list, portfolio specification, or outcome-evaluation
+specification. It cannot consume, calculate, inspect, summarize, serialize, or
+expose realized outcomes. Screen construction consumes no outcome-research slot
+and requires no OPEN/CLOSE. The detailed proposed contract is
+`docs/architecture/Screen_Specification_v1_Draft.md`.
+
+## 18. Ranked-artifact lineage
+
+The deterministic candidate artifact must bind its Screen Specification,
+universe and security-master identities, fact sources, accounting semantics,
+Proxy Registry, ranking configuration, research vintage, source manifests,
+relevant code commits, exact decision-bearing digest scope, and content digest.
+Selector authority may not exceed digest scope. Auxiliary output cannot influence
+selection unless it is brought into a new versioned bound scope.
+
+## 19. Entry 000 architecture-package semantics
+
+Entry 000 becomes a versioned package, not an arbitrary text-blob hash. It must
+distinguish original v3.1 historical components from v3.2 current authority and
+bind deterministic order, paths, roles, SHA-256 identities, Git provenance,
+Run 1 and Run 2 commits, ADR approvals, Batch 1 record, amendment ledger, and
+no-outcome attestations. The draft package contract is
+`docs/architecture/Entry000_Package_v2_Draft.md`. No Entry 000 has been frozen.
+
+## 20. Entry 001 full-experiment semantics
+
+Entry 001 remains the complete experiment freeze required before any realized-
+outcome evaluation. In addition to existing Run 1/2 fields, a future schema must
+bind the exact frozen Screen Specification and exact ranked artifact, digest,
+lineage, data vintage, and relevant commits. A different screen cannot be
+substituted after outcomes are observed.
+
+## 21. Outcome-governance boundary
+
+Outcome-bearing use includes forward returns, rank IC against realized returns,
+realized quantile/decile returns, long-short realized spreads, portfolio returns,
+Sharpe, drawdown, hit rate, realized Rule-17 comparisons, and every statistic
+derived from future realized outcomes. Every such use requires:
+
+`full Entry 001 → specification budget → durable OPEN → authorized outcome-bearing execution → CLOSE`
+
+No screen label, diagnostic label, preview, or data-correction label bypasses
+this boundary.
+
+## 22. Specification-budget semantics
+
+Outcome-free Screen Specification construction and deterministic ranking consume
+no outcome-research slot. Every authorized research-specification OPEN reserves
+one slot under Run 2. Pre-OPEN failures consume no slot; post-OPEN failure or
+abandonment does not silently release one. Any future release or invalidation
+mechanism requires separate approval.
+
+## 23. OPEN/CLOSE semantics
+
+All deterministic preflight must complete before OPEN without emitting an
+outcome statistic. OPEN must be durable, uniquely identified, content-bound,
+append-only, and revalidated before authorization. Only authorized execution may
+first use realized values to produce a result. CLOSE records completion, failure,
+or abandonment without rewriting OPEN. Run class is immutable after OPEN.
+
+## 24. Data-vintage and source-manifest binding
+
+Governed inputs bind a research-vintage bundle, source-native vintage, source
+kind and ID, exact content digest, audit-artifact digest, source-manifest digest,
+and approved provenance class. A held-return manifest additionally binds the
+economic-return convention. No runtime vintage string may override frozen
+lineage. No vendor is selected by this draft.
+
+## 25. LLM evidence-sidecar boundary
+
+LLMs may extract structured, source-linked evidence and assist measurement or
+economic validation. Deterministic code calculates financial signals. Current
+or live LLM output, later amendments, and model-held later knowledge are not
+historically PIT facts. The evidence sidecar cannot introduce an unregistered
+rank input or bypass Screen Specification lineage.
+
+## 26. Future deep-research boundary
+
+The ranked candidate set feeds later company-specific research, including deep
+valuation and evidence review. That work is downstream of candidate generation
+and is not authorized to mutate the frozen historical screen. Any use of
+realized outcomes remains governed by Entry 001 and OPEN.
+
+## 27. Future BUY/HOLD/SELL boundary
+
+Neither a Screen Specification nor its ranked candidates are BUY, HOLD, or SELL
+recommendations. A future recommendation/decision system requires separately
+approved objectives, evidence standards, portfolio/risk rules, human authority,
+and governance. No such system is approved here.
+
+## 28. Unsupported capabilities
+
+Currently unsupported pending later governed work include the complete
+historical security master and universe engine; historical market-price/EV and
+market-role alignment; audited vendor integration; final accounting and
+denominator conventions; exact investability rules; terminal/cash and unequal-
+holding-period accounting; and the Screen Specification and Entry 000 v2 machine
+schemas. Unsupported capability is not permission to approximate silently.
+
+## 29. Changelog
+
+| Version | Status | Change |
+|---|---|---|
+| 3.1 | immutable historical source | closed pre-return architecture |
+| 3.2 Draft | draft | records ADR-001 through ADR-004, Run 1/2 reconciliation, and Batch 1 intent |
+
+## 30. Supersession and amendment ledger
+
+| ID | Classification | Effect |
+|---|---|---|
+| ADR-001 | approved successor authority | establishes v3.2 while preserving v3.1 unchanged |
+| ADR-002 | approved extension | adds a separately frozen, outcome-free Screen Specification stage |
+| ADR-003 | approved boundary clarification/extension | screen construction needs no slot or OPEN; every realized-outcome use retains full Run 2 governance |
+| ADR-004 | approved Entry 000 contract replacement direction | future Entry 000 is a provenance-bound architecture package, not an arbitrary text blob |
+| B1-Q1/Q2/Q3/Q5/Q8 | approved research intent | constrains future specification without selecting deferred operational values |
+
+The ledger does not claim that v3.1 originally contained these later rules.
