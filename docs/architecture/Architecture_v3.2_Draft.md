@@ -27,8 +27,10 @@ The historical source components are:
 Their exact identities belong in the future Entry 000 package manifest. Textual
 equivalence between the two formats is not asserted merely because their titles
 match. Both files remain unchanged. The implementation lineage is Run 1 commit
-`587051d` followed by Run 2 commit
-`be1f9973e0aeeaaca80ab8f100a3de9a7a7c72db`.
+`587051d1aa77d2634a364c76061016bfca7dccc0` followed by Run 2 commit
+`be1f9973e0aeeaaca80ab8f100a3de9a7a7c72db`. The canonical repository
+identity for this authority system is exactly
+`mostafa-maghsoodi/Stock-Market-Research`; case and spelling are significant.
 
 ## 3. Architecture authority hierarchy
 
@@ -45,6 +47,46 @@ For post-Run-2 work, authority descends in this order:
 Architecture v3.1 remains the historical predecessor and provenance source.
 Where v3.2 does not amend it, its principles are inherited. Implementation
 behavior alone never amends either architecture.
+
+### 3.1 Authority materialization and approval bootstrap
+
+ADR-001 through ADR-004 are four separately addressable `ADR_RECORD` subjects
+at their governed repository paths. Each ADR requires its own Approval Record;
+an Architecture v3.2 Approval Record cannot substitute for any ADR Approval
+Record. The first machine-verifiable Amendment Ledger contains exactly four
+entries, in order, for ADR-001, ADR-002, ADR-003, and ADR-004. Batch 1
+Q1/Q2/Q3/Q5/Q8 is not duplicated in that ledger because Batch 1 Research Intent
+is a separate Entry000 current-authority component. The first ledger path is
+exactly
+`docs/architecture/amendments/Amendment_Ledger_v1.0.0.json`.
+
+Preliminary researcher authorization may direct preparation of a subject but is
+not governing approval. Except for the single bootstrap below, governing
+approval occurs only after subject bytes and their source commit/path/blob/
+SHA-256 are known, an Approval Record is created and committed, its exact record
+identity is known, and the researcher explicitly approves that identity.
+Decision Approval Records must complete that sequence before their decisions
+are eligible for ledger inclusion. The completed ledger follows the same
+sequence after its own source commit and becomes authority only when the
+researcher approves its exact committed ledger Approval Record identity;
+Entry000 may then bind it.
+
+The only bootstrap exception is
+`docs/architecture/Approval_Record_v1_Final.md`. After that Final contract is
+committed, the researcher may directly approve exactly its immutable
+repository/path/source-commit/blob/SHA-256 subject identity. This exception
+approves no other subject, is not reusable, and must be recorded in architecture
+provenance and approval history without a self-referential Approval Record.
+Every later approval uses Approval Record v1. A second bootstrap requires a new
+approved architecture amendment.
+
+Final documents use stable status semantics equivalent to `Status: FINAL —
+approval state is external to these bytes.` A Final document does not
+self-attest approval; governing effect is determined externally, and document
+Final status is separate from implementation and freeze status. The canonical
+repository identity in every governed identity is exactly
+`mostafa-maghsoodi/Stock-Market-Research`, never a path, URL, branch, short SHA,
+or display name.
 
 ## 4. Amendment methodology
 

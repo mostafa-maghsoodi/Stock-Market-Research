@@ -33,14 +33,14 @@ Entry000PackageV2 = {
  "package_id": sha256,
  "created_at_utc": timestamp,
  "canonicalization_version": "CanonicalJSON-v1",
- "repository_id": string,
+ "repository_id": "mostafa-maghsoodi/Stock-Market-Research",
  "run_lineage": RunLineage,
  "components": [AuthorityComponent x exactly 6],
  "approval_evidence": [ApprovalEvidence, ...],
  "attestations": PackageAttestations
 }
 RunLineage = {
- "run1_commit": 40-lowercase-hex,
+ "run1_commit": "587051d1aa77d2634a364c76061016bfca7dccc0",
  "run2_commit": "be1f9973e0aeeaaca80ab8f100a3de9a7a7c72db"
 }
 PackageAttestations = {
@@ -93,7 +93,20 @@ The array is exactly, without duplicates or alternatives:
 Historical components require null approval references. Components 3–6 require
 non-null, distinct approval-record identities whose subjects exactly equal the
 component identities. Presence never approves. The amendment ledger is a
-separate component, not an architecture section.
+separate component, not an architecture section. The canonical repository
+identity is exactly `mostafa-maghsoodi/Stock-Market-Research`; case and spelling
+are significant.
+
+The first ledger contains exactly the four independent `ADR_RECORD` subjects
+ADR-001 through ADR-004 and their four distinct Approval Record identities.
+Those identities are referenced through the ledger and included in Entry000's
+approval-evidence closure. An Architecture v3.2 Approval Record cannot substitute
+for any ADR record. Batch 1 remains fixed component 5 and is not duplicated in
+the first ledger. The Approval Record v1 bootstrap approves only its own Final
+contract; it creates neither an Entry000 component nor approval evidence for any
+of the six components. ADR subjects, the Approval Record contract, the Entry000
+contract, and derived A8 documents are not additional components. The fixed
+array remains exactly six.
 
 `source_commit` is the full commit whose tree contains the exact approved bytes
 at that exact path. It is not necessarily introduction, approval-record, or

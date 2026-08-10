@@ -6,9 +6,12 @@ This is a documentation-only, closed contract. It creates no approval record
 and grants no approval. Architecture v3.1 remains immutable historical evidence;
 the exact Architecture v3.2 document remains draft until approved.
 
-An approval is a human event external to the repository. Its trust root is the
-researcher's explicit approval of one exact record identity. Recording an ID,
-status, or attestation in Entry000 does not create that event. Machine checks
+Preliminary researcher authorization may direct preparation of a subject and
+may occur before an Approval Record exists, but it is not governing approval.
+Except for the one-time bootstrap in Section 3, governing approval is an
+external human event whose trust root is the researcher's explicit approval of
+one exact committed Approval Record identity. Recording an ID, status, or
+attestation in Entry000 does not create that event. Machine checks
 prove byte identity, integrity, provenance, and reference consistency—not the
 researcher's intent. No signature is required in v1, and absent a future
 approved signature mechanism a verifier MUST NOT call intent cryptographically
@@ -33,8 +36,9 @@ has exactly these keys (no extension maps):
   "predecessor_approval_record_identity": null | ApprovalRecordIdentity
 }
 SubjectIdentity = {
-  "subject_type": "ARCHITECTURE" | "CONTRACT" | "RESEARCH_INTENT" |
-                  "AMENDMENT_LEDGER" | "PACKAGE" | "OTHER_GOVERNED_ARTIFACT",
+  "subject_type": "ARCHITECTURE" | "ADR_RECORD" | "CONTRACT" |
+                  "RESEARCH_INTENT" | "AMENDMENT_LEDGER" | "PACKAGE" |
+                  "OTHER_GOVERNED_ARTIFACT",
   "repository_id": string,
   "repository_relative_path": normalized relative string,
   "source_commit": 40-lowercase-hex full Git commit,
@@ -60,9 +64,32 @@ ApprovalRecordIdentity = {
 `source_commit` means a commit whose tree contains the exact subject bytes at
 the stated path; it need not be introduction, approval, or freeze commit.
 Record identity is exactly the five fields of `ApprovalRecordIdentity` and the
-commit must contain the record blob/bytes at the record path.
+commit must contain the record blob/bytes at the record path. Every
+`repository_id` is exactly `mostafa-maghsoodi/Stock-Market-Research`; case and
+spelling are significant. `ADR_RECORD` identifies an independently addressable
+architecture decision record by its exact path, source commit, Git blob, and
+exact-byte SHA-256. ADRs MUST NOT use `OTHER_GOVERNED_ARTIFACT`.
 
-## 3. Semantics, ordering, and history
+## 3. Semantics, ordering, bootstrap, and history
+
+Normal governing approval has exactly this order: subject bytes; subject source
+commit/path/blob/SHA-256; Approval Record bytes; Approval Record commit; exact
+Approval Record identity; researcher explicit approval of that exact identity.
+The record's existence or committed status is not governing approval.
+
+The only bootstrap exception is the Final Approval Record v1 contract at
+`docs/architecture/Approval_Record_v1_Final.md`. After its Final bytes are
+committed, the researcher may directly approve exactly this immutable subject
+identity tuple: repository identity, subject path, subject source commit,
+subject Git blob ID, and subject exact-byte SHA-256. The repository identity is
+exactly `mostafa-maghsoodi/Stock-Market-Research`. This direct event applies
+only to that one subject and requires no self-Approval Record. It creates no
+reusable mechanism and approves no architecture, ADR, Screen Specification,
+Batch 1 intent, Amendment Ledger contract or instance, Entry000 contract, or
+other subject. Its event is recorded in architecture provenance and approval
+history without claiming that a self-referential record created it. After this
+bootstrap, every authority approval uses the normal Approval Record process. A
+second bootstrap requires a new approved architecture amendment.
 
 `APPROVE/APPROVED` has a null predecessor. `SUPERSEDE/SUPERSEDED` and
 `REVOKE/REVOKED` identify the immediately affected prior record. Status is a
