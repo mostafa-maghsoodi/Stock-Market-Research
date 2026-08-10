@@ -13,6 +13,7 @@ import math
 from statistics import mean
 from typing import Mapping, Sequence
 
+from .datasets import GovernedFactDataset
 from .domain import (
     DenominatorAction,
     DenominatorDefinition,
@@ -107,12 +108,28 @@ class GovernedFeatureBatch:
     observations: tuple[FeatureObservation, ...]
     proxy_registry_digest: str
     feature_generation_code_commit: str
+    entry_001_sha256: str
+    research_vintage_bundle_id: str
+    fact_source_kind: str
+    fact_source_id: str
+    fact_source_native_vintage_identifier: str
+    fact_source_content_sha256: str
+    fact_source_audit_artifact_sha256: str
+    fact_source_manifest_sha256: str
 
     def __init__(
         self,
         observations: tuple[FeatureObservation, ...],
         proxy_registry_digest: str,
         feature_generation_code_commit: str,
+        entry_001_sha256: str,
+        research_vintage_bundle_id: str,
+        fact_source_kind: str,
+        fact_source_id: str,
+        fact_source_native_vintage_identifier: str,
+        fact_source_content_sha256: str,
+        fact_source_audit_artifact_sha256: str,
+        fact_source_manifest_sha256: str,
         *,
         _token: object,
     ) -> None:
@@ -124,6 +141,30 @@ class GovernedFeatureBatch:
         object.__setattr__(self, "proxy_registry_digest", proxy_registry_digest)
         object.__setattr__(
             self, "feature_generation_code_commit", feature_generation_code_commit
+        )
+        object.__setattr__(self, "entry_001_sha256", entry_001_sha256)
+        object.__setattr__(
+            self,
+            "research_vintage_bundle_id",
+            research_vintage_bundle_id,
+        )
+        object.__setattr__(self, "fact_source_kind", fact_source_kind)
+        object.__setattr__(self, "fact_source_id", fact_source_id)
+        object.__setattr__(
+            self,
+            "fact_source_native_vintage_identifier",
+            fact_source_native_vintage_identifier,
+        )
+        object.__setattr__(
+            self, "fact_source_content_sha256", fact_source_content_sha256
+        )
+        object.__setattr__(
+            self,
+            "fact_source_audit_artifact_sha256",
+            fact_source_audit_artifact_sha256,
+        )
+        object.__setattr__(
+            self, "fact_source_manifest_sha256", fact_source_manifest_sha256
         )
 
 
@@ -142,14 +183,21 @@ class FeatureEngine:
 
     def __init__(
         self,
-        store: PointInTimeStore,
+        store: PointInTimeStore | GovernedFactDataset,
         resolved_entry_001: ResolvedEntry001,
     ) -> None:
         if not isinstance(resolved_entry_001, ResolvedEntry001):
             raise TypeError(
                 "governed FeatureEngine requires a verified ResolvedEntry001"
             )
-        self.store = store
+        if isinstance(store, GovernedFactDataset):
+            self.fact_dataset: GovernedFactDataset | None = store
+            self.store = PointInTimeStore(store.observations)
+        elif isinstance(store, PointInTimeStore):
+            self.fact_dataset = None
+            self.store = store
+        else:
+            raise TypeError("FeatureEngine requires a point-in-time fact source")
         self.resolved_entry_001 = resolved_entry_001
         self.restatement_policy = resolved_entry_001.restatement_policy
 
@@ -529,6 +577,16 @@ class FeatureEngine:
         as_of: datetime,
         repository: str,
     ) -> GovernedFeatureBatch:
+        if self.fact_dataset is None:
+            raise GovernanceError(
+                "governed feature generation requires GovernedFactDataset"
+            )
+        source_manifest = self.fact_dataset.source_manifest
+        approved_vintage = self.resolved_entry_001.data_vintage_identifier
+        if source_manifest.research_vintage_bundle_id != approved_vintage:
+            raise GovernanceError(
+                "fact-source research vintage bundle does not match Entry 001"
+            )
         manifest = source_control_manifest(repository)
         if manifest.get("dirty") is not False:
             raise GovernanceError(
@@ -540,5 +598,80 @@ class FeatureEngine:
             observations=observations,
             proxy_registry_digest=self.resolved_entry_001.proxy_registry_digest,
             feature_generation_code_commit=commit,
+            entry_001_sha256=self.resolved_entry_001.entry_001_sha256,
+            research_vintage_bundle_id=approved_vintage,
+            fact_source_kind=source_manifest.source_kind,
+            fact_source_id=source_manifest.source_id,
+            fact_source_native_vintage_identifier=(
+                source_manifest.source_native_vintage_identifier
+            ),
+            fact_source_content_sha256=source_manifest.content_sha256,
+            fact_source_audit_artifact_sha256=(
+                source_manifest.audit_artifact_sha256
+            ),
+            fact_source_manifest_sha256=source_manifest.manifest_sha256,
             _token=_BATCH_TOKEN,
         )
+
+
+def combine_governed_feature_batches(
+    batches: Sequence[GovernedFeatureBatch],
+    repository: str,
+) -> GovernedFeatureBatch:
+    """Combine same-lineage date batches without creating a promotion path."""
+
+    if not batches or any(
+        not isinstance(batch, GovernedFeatureBatch) for batch in batches
+    ):
+        raise TypeError("one or more governed feature batches are required")
+    first = batches[0]
+    lineage_fields = (
+        "proxy_registry_digest",
+        "feature_generation_code_commit",
+        "entry_001_sha256",
+        "research_vintage_bundle_id",
+        "fact_source_kind",
+        "fact_source_id",
+        "fact_source_native_vintage_identifier",
+        "fact_source_content_sha256",
+        "fact_source_audit_artifact_sha256",
+        "fact_source_manifest_sha256",
+    )
+    for batch in batches[1:]:
+        if any(getattr(batch, field) != getattr(first, field) for field in lineage_fields):
+            raise GovernanceError("feature batches do not share exact governed lineage")
+    manifest = source_control_manifest(repository)
+    if manifest.get("dirty") is not False:
+        raise GovernanceError("governed batch combination requires a clean source tree")
+    if manifest["commit"] != first.feature_generation_code_commit:
+        raise GovernanceError("batch-combination commit differs from feature commit")
+    observations = tuple(
+        sorted(
+            (item for batch in batches for item in batch.observations),
+            key=lambda item: (item.decision_date, item.security_id, item.feature),
+        )
+    )
+    keys = [
+        (item.security_id, item.decision_date, item.feature)
+        for item in observations
+    ]
+    if len(keys) != len(set(keys)):
+        raise GovernanceError("combined feature batches contain duplicate observations")
+    return GovernedFeatureBatch(
+        observations=observations,
+        proxy_registry_digest=first.proxy_registry_digest,
+        feature_generation_code_commit=first.feature_generation_code_commit,
+        entry_001_sha256=first.entry_001_sha256,
+        research_vintage_bundle_id=first.research_vintage_bundle_id,
+        fact_source_kind=first.fact_source_kind,
+        fact_source_id=first.fact_source_id,
+        fact_source_native_vintage_identifier=(
+            first.fact_source_native_vintage_identifier
+        ),
+        fact_source_content_sha256=first.fact_source_content_sha256,
+        fact_source_audit_artifact_sha256=(
+            first.fact_source_audit_artifact_sha256
+        ),
+        fact_source_manifest_sha256=first.fact_source_manifest_sha256,
+        _token=_BATCH_TOKEN,
+    )

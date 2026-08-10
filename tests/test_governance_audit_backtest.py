@@ -186,14 +186,14 @@ class Entry001V2SchemaTests(unittest.TestCase):
             corrupt_path = Path(temporary) / "corrupt.json"
             write_artifact(corrupt_path, complete_entry_001())
             content = json.loads(corrupt_path.read_text())
-            content["holding_period"] = "changed"
+            content["data_vintage_identifier"] = "changed"
             corrupt_path.write_text(json.dumps(content))
             with self.assertRaisesRegex(GovernanceError, "hash mismatch"):
                 verify_artifact(corrupt_path)
 
     def test_unresolved_required_field_prevents_freeze(self) -> None:
         payload = complete_entry_001()
-        payload["holding_period"] = "UNRESOLVED"
+        payload["portfolio_timing"]["calendar_basis"] = "UNRESOLVED"
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaises(UnresolvedEntry001):
                 freeze_entry_001(
@@ -325,7 +325,7 @@ class Entry001V2SchemaTests(unittest.TestCase):
 
     def test_malformed_source_control_precedes_unrelated_unresolved(self) -> None:
         payload = complete_entry_001()
-        payload["holding_period"] = "UNRESOLVED"
+        payload["estimates_decision"] = "UNRESOLVED"
         payload["source_control"]["commit"] = "not-a-full-commit"
         with self.assertRaisesRegex(GovernanceError, "source_control.commit") as caught:
             governance._validate_entry_001(
@@ -336,7 +336,7 @@ class Entry001V2SchemaTests(unittest.TestCase):
 
     def test_malformed_environment_manifest_precedes_unrelated_unresolved(self) -> None:
         payload = complete_entry_001()
-        payload["holding_period"] = "UNRESOLVED"
+        payload["estimates_decision"] = "UNRESOLVED"
         payload["environment_manifest"] = {"schema_version": 1}
         with self.assertRaisesRegex(GovernanceError, "missing required fields") as caught:
             governance._validate_entry_001(
@@ -377,7 +377,7 @@ class Entry001V2SchemaTests(unittest.TestCase):
         )
         for model in malformed_models:
             payload = complete_entry_001()
-            payload["holding_period"] = "UNRESOLVED"
+            payload["estimates_decision"] = "UNRESOLVED"
             payload["transaction_cost_model"] = model
             with self.subTest(model=model):
                 with self.assertRaises(GovernanceError) as caught:
@@ -390,7 +390,7 @@ class Entry001V2SchemaTests(unittest.TestCase):
     def test_arbitrary_status_objects_are_not_governance_placeholders(self) -> None:
         for section in ("environment_manifest", "source_control"):
             payload = complete_entry_001()
-            payload["holding_period"] = "UNRESOLVED"
+            payload["estimates_decision"] = "UNRESOLVED"
             payload[section] = {"status": "REPLACE_WITH_AN_UNRECOGNIZED_VALUE"}
             with self.subTest(section=section):
                 with self.assertRaises(GovernanceError) as caught:
@@ -929,21 +929,16 @@ class AuditFixtureAndBacktestTests(unittest.TestCase):
         ):
             self.assertIs(config_signature.parameters[name].default, inspect.Parameter.empty)
 
-    def test_backtest_still_requires_verified_v2_entry(self) -> None:
+    def test_backtest_api_rejects_legacy_ranked_return_frame_and_top_n(self) -> None:
         frame = pd.DataFrame([
             {"decision_date": "2025-01-31", "security_id": "AAA", "composite_score": 0.9, "forward_total_return": 0.10},
             {"decision_date": "2025-01-31", "security_id": "BBB", "composite_score": 0.8, "forward_total_return": 0.05},
             {"decision_date": "2025-02-28", "security_id": "CCC", "composite_score": 0.9, "forward_total_return": 0.08},
             {"decision_date": "2025-02-28", "security_id": "DDD", "composite_score": 0.8, "forward_total_return": 0.06},
         ])
-        with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "entry.json"
-            with self.assertRaises(GovernanceError):
-                run_equal_weight_backtest(frame, path, 2)
-            write_artifact(path, complete_entry_001())
-            with matching_frozen_runtime():
-                result = run_equal_weight_backtest(frame, path, 2)
-        self.assertEqual(result.periods["traded_notional"].tolist(), [1.0, 2.0])
+        self.assertNotIn("top_n", inspect.signature(run_equal_weight_backtest).parameters)
+        with self.assertRaises(TypeError):
+            run_equal_weight_backtest(frame, "/entry.json", 2)
 
 
 if __name__ == "__main__":

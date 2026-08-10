@@ -16,7 +16,6 @@ from graham_research.identification import (
     spearman_rank_correlation,
     standalone_nested_leave_one_out,
 )
-from graham_research.pit import PointInTimeStore
 from graham_research.ranking import (
     CompositeConfig,
     RankingError,
@@ -24,7 +23,7 @@ from graham_research.ranking import (
     select_top_n,
 )
 
-from run1_fixtures import fact, resolved_entry
+from run1_fixtures import fact, governed_fact_dataset, resolved_entry
 
 
 DECISION = datetime.fromisoformat("2025-03-01T21:00:00+00:00")
@@ -50,7 +49,7 @@ def governed_inputs(include_bbb_revenue: bool = True):
             row for row in rows
             if not (row.security_id == "BBB" and row.field == "revenue")
         ]
-    engine = FeatureEngine(PointInTimeStore(rows), entry)
+    engine = FeatureEngine(governed_fact_dataset(rows), entry)
     with patch("graham_research.features.source_control_manifest", return_value=CLEAN):
         batch = engine.calculate_governed_batch(
             ("AAA", "BBB"), DECISION, "/synthetic/repo"
@@ -74,6 +73,17 @@ def clone_batch(
         "feature_generation_code_commit",
         batch.feature_generation_code_commit,
     )
+    for attribute in (
+        "entry_001_sha256",
+        "research_vintage_bundle_id",
+        "fact_source_kind",
+        "fact_source_id",
+        "fact_source_native_vintage_identifier",
+        "fact_source_content_sha256",
+        "fact_source_audit_artifact_sha256",
+        "fact_source_manifest_sha256",
+    ):
+        object.__setattr__(value, attribute, getattr(batch, attribute))
     return value
 
 

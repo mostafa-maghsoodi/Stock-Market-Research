@@ -19,6 +19,7 @@ from graham_research.pit import PointInTimeStore, PointInTimeViolation, assert_n
 from run1_fixtures import (
     complete_entry_001,
     fact,
+    governed_fact_dataset,
     resolved_entry,
     resolved_entry_from_payload,
 )
@@ -29,7 +30,7 @@ CLEAN_MANIFEST = {"vcs": "git", "commit": "b" * 40, "dirty": False}
 
 
 def engine(rows, proxies=("gross_profitability",)) -> FeatureEngine:
-    return FeatureEngine(PointInTimeStore(rows), resolved_entry(proxies))
+    return FeatureEngine(governed_fact_dataset(rows), resolved_entry(proxies))
 
 
 def batch(feature_engine: FeatureEngine, securities=("AAA",)):
@@ -292,7 +293,9 @@ class ComparabilityTests(unittest.TestCase):
         proxy = payload["proxy_registry"][0]
         proxy["frequency_governed_source_fields"] = ["gross_profit"]
         proxy["frequency_exempt_source_fields"] = ["total_assets"]
-        return FeatureEngine(PointInTimeStore(rows), resolved_entry_from_payload(payload))
+        return FeatureEngine(
+            governed_fact_dataset(rows), resolved_entry_from_payload(payload)
+        )
 
     def test_frequency_exempt_field_skips_frequency_equality(self) -> None:
         rows = [
@@ -346,12 +349,12 @@ class FormulaAndProvenanceTests(unittest.TestCase):
         })
         resolved = resolved_entry_from_payload(payload)
         without_prior = batch(
-            FeatureEngine(PointInTimeStore(gross_rows()), resolved)
+            FeatureEngine(governed_fact_dataset(gross_rows()), resolved)
         ).observations[0]
         self.assertIn("nonconsecutive_fiscal_years", without_prior.exclusion_reason)
         with_prior_rows = gross_rows() + [fact("AAA", "gross_profit", 2023, 50)]
         with_prior = batch(
-            FeatureEngine(PointInTimeStore(with_prior_rows), resolved)
+            FeatureEngine(governed_fact_dataset(with_prior_rows), resolved)
         ).observations[0]
         self.assertAlmostEqual(with_prior.value, 0.30)
 
@@ -436,7 +439,7 @@ class DenominatorPolicyTests(unittest.TestCase):
         policy["negative"] = negative
         policy["near_zero"] = near_zero
         resolved = resolved_entry_from_payload(payload)
-        return batch(FeatureEngine(PointInTimeStore(rows), resolved)).observations[0]
+        return batch(FeatureEngine(governed_fact_dataset(rows), resolved)).observations[0]
 
     def test_denominator_missing_is_distinct(self) -> None:
         result = self._gross(None, None)
@@ -510,7 +513,9 @@ class DenominatorPolicyTests(unittest.TestCase):
             fact("AAA", "revenue", 2023, 100),
             fact("AAA", "revenue", 2024, -100),
         ]
-        result = batch(FeatureEngine(PointInTimeStore(rows), resolved)).observations[0]
+        result = batch(
+            FeatureEngine(governed_fact_dataset(rows), resolved)
+        ).observations[0]
         self.assertAlmostEqual(result.value, -0.30)
 
 

@@ -16,11 +16,14 @@ from .governance import (
     environment_manifest,
     freeze_entry_000,
     freeze_entry_001,
+    load_resolved_entry_001,
     require_entry_001,
     source_control_manifest,
     verify_artifact,
 )
 from .identification import rule17
+from .ranked_artifact import inspect_ranking_manifest
+from .specification import SpecificationRegister
 
 
 def _load_facts_csv(path: str | Path) -> list[FactObservation]:
@@ -59,6 +62,25 @@ def build_parser() -> argparse.ArgumentParser:
 
     rule = commands.add_parser("rule17", help="evaluate sign-aligned deltas")
     rule.add_argument("deltas", nargs="+", type=float)
+
+    spec_log = commands.add_parser(
+        "spec-log", help="inspect the immutable specification event history"
+    )
+    spec_log.add_argument("--repository", required=True)
+    spec_log.add_argument("--register")
+
+    spec_budget = commands.add_parser(
+        "spec-budget", help="inspect frozen specification-budget availability"
+    )
+    spec_budget.add_argument("entry_001")
+    spec_budget.add_argument("--repository", required=True)
+    spec_budget.add_argument("--register")
+
+    ranked = commands.add_parser(
+        "inspect-ranked-artifact",
+        help="verify and inspect a frozen governed-ranking manifest",
+    )
+    ranked.add_argument("manifest_json")
     return parser
 
 
@@ -95,6 +117,35 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(output, indent=2, sort_keys=True))
     elif args.command == "rule17":
         print(json.dumps(asdict(rule17(args.deltas)), indent=2, sort_keys=True))
+    elif args.command == "spec-log":
+        register = (
+            SpecificationRegister.for_repository(args.repository, path=args.register)
+            if args.register
+            else SpecificationRegister.for_repository(args.repository)
+        )
+        print(json.dumps(register.history(), indent=2, sort_keys=True))
+    elif args.command == "spec-budget":
+        register = (
+            SpecificationRegister.for_repository(args.repository, path=args.register)
+            if args.register
+            else SpecificationRegister.for_repository(args.repository)
+        )
+        entry = load_resolved_entry_001(args.entry_001)
+        print(
+            json.dumps(
+                register.budget(entry.specification_budget),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    elif args.command == "inspect-ranked-artifact":
+        print(
+            json.dumps(
+                inspect_ranking_manifest(args.manifest_json),
+                indent=2,
+                sort_keys=True,
+            )
+        )
     return 0
 
 

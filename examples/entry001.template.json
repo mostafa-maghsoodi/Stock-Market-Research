@@ -12,9 +12,27 @@
     "minimum_adv": null
   },
   "sample_boundaries": {
-    "development": [null, null],
-    "holdout_a": [null, null],
-    "holdout_b": [null, null]
+    "development": {
+      "start": "UNRESOLVED",
+      "end": "UNRESOLVED",
+      "start_boundary_rule": "UNRESOLVED",
+      "end_boundary_rule": "UNRESOLVED"
+    },
+    "holdout_a": {
+      "start": "UNRESOLVED",
+      "end": "UNRESOLVED",
+      "start_boundary_rule": "UNRESOLVED",
+      "end_boundary_rule": "UNRESOLVED"
+    },
+    "holdout_b": {
+      "start": "UNRESOLVED",
+      "end": "UNRESOLVED",
+      "start_boundary_rule": "UNRESOLVED",
+      "end_boundary_rule": "UNRESOLVED"
+    },
+    "partition_overlap_policy": "UNRESOLVED",
+    "partition_gap_policy": "UNRESOLVED",
+    "shared_boundary_assignment_rule": "UNRESOLVED"
   },
   "proxy_registry": [
     {
@@ -508,8 +526,14 @@
     "convention": "traded_notional_times_one_way_bps",
     "one_way_cost_bps": null
   },
-  "specification_budget": null,
-  "specification_counting_rules": "UNRESOLVED",
+  "specification_budget": "UNRESOLVED",
+  "specification_counting_rules": {
+    "research_specification": "reserve_one_slot_at_open",
+    "diagnostic": "no_research_slot",
+    "data_correction": "no_research_slot_requires_invalidated_specification",
+    "blocked_pre_open": "no_research_slot",
+    "post_open_failure": "retain_reservation_no_release_mechanism_pending_researcher_resolution"
+  },
   "construct_kill_conditions": "UNRESOLVED",
   "system_kill_condition": "UNRESOLVED",
   "rule_17": {
@@ -517,8 +541,37 @@
     "minimum_k": 5,
     "pass": "Q25 > 0 and Q25 > IQR"
   },
-  "rebalance_frequency": "UNRESOLVED",
-  "holding_period": "UNRESOLVED",
+  "portfolio_timing": {
+    "calendar_basis": "UNRESOLVED",
+    "rebalance_interval_count": "UNRESOLVED",
+    "rebalance_date_convention": "UNRESOLVED",
+    "month_end_convention": "UNRESOLVED",
+    "schedule_anchor_date": "UNRESOLVED",
+    "anchor_semantics": "UNRESOLVED",
+    "holding_period_equals_rebalance_interval": "UNRESOLVED",
+    "holding_period_rule": "UNRESOLVED",
+    "holding_period_interval_count": "UNRESOLVED",
+    "return_interval_start_rule": "UNRESOLVED",
+    "return_interval_end_rule": "UNRESOLVED",
+    "decision_information_cutoff": "UNRESOLVED",
+    "portfolio_execution_timing": "UNRESOLVED",
+    "return_measurement_start": "UNRESOLVED",
+    "return_measurement_end": "UNRESOLVED",
+    "market_session_basis": "UNRESOLVED",
+    "market_timezone": "UNRESOLVED",
+    "return_start_endpoint_inclusion": "UNRESOLVED",
+    "return_end_endpoint_inclusion": "UNRESOLVED",
+    "held_return_source_convention": "UNRESOLVED"
+  },
+  "portfolio_construction": {
+    "selection_rule": "top_n",
+    "number_of_positions": "UNRESOLVED",
+    "sizing_rule": "equal_weight",
+    "insufficient_eligible_policy": "UNRESOLVED",
+    "unfilled_capacity_policy": "UNRESOLVED"
+  },
+  "terminal_position_policy": "UNRESOLVED",
+  "data_vintage_identifier": "UNRESOLVED",
   "robustness_alternatives": [],
   "environment_manifest": {
     "status": "REPLACE_WITH_OUTPUT_FROM_GRAHAM_RESEARCH_MANIFEST"

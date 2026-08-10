@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import csv
 from datetime import date, datetime
+import hashlib
 from pathlib import Path
 import tempfile
 from unittest.mock import patch
 
+from graham_research.datasets import (
+    HeldPeriodReturnObservation,
+    load_governed_fact_dataset,
+    load_governed_held_return_source,
+)
 from graham_research.domain import FactObservation, PeriodType, ReportingFrequency
 from graham_research.governance import (
     ENTRY_001_REQUIRED_KEYS,
+    SPECIFICATION_COUNTING_RULES,
     freeze_artifact,
     load_resolved_entry_001,
 )
@@ -22,6 +30,7 @@ FROZEN_RUNTIME = {
     "implementation": "CPython",
     "platform": "synthetic-test-platform",
 }
+SYNTHETIC_RESEARCH_VINTAGE_BUNDLE = "synthetic-research-vintage-bundle"
 
 
 def denominator_policy(
@@ -248,12 +257,67 @@ def complete_entry_001(
             ),
         },
         "research_provenance": [{"artifact": "synthetic-test-only"}],
+        "sample_boundaries": {
+            "development": {
+                "start": "2020-01-01",
+                "end": "2029-12-31",
+                "start_boundary_rule": "included",
+                "end_boundary_rule": "included",
+            },
+            "holdout_a": {
+                "start": "2030-01-01",
+                "end": "2039-12-31",
+                "start_boundary_rule": "included",
+                "end_boundary_rule": "included",
+            },
+            "holdout_b": {
+                "start": "2040-01-01",
+                "end": "2049-12-31",
+                "start_boundary_rule": "included",
+                "end_boundary_rule": "included",
+            },
+            "partition_overlap_policy": "forbid",
+            "partition_gap_policy": "allow",
+            "shared_boundary_assignment_rule": "not_applicable",
+        },
+        "portfolio_timing": {
+            "calendar_basis": "calendar_months",
+            "rebalance_interval_count": 1,
+            "rebalance_date_convention": "calendar_month_end",
+            "month_end_convention": "civil_calendar_month_end",
+            "schedule_anchor_date": "not_applicable",
+            "anchor_semantics": "not_applicable",
+            "holding_period_equals_rebalance_interval": True,
+            "holding_period_rule": "rebalance_interval",
+            "holding_period_interval_count": "not_applicable",
+            "return_interval_start_rule": "decision_date",
+            "return_interval_end_rule": "next_scheduled_decision_date",
+            "decision_information_cutoff": "synthetic_test_information_cutoff",
+            "portfolio_execution_timing": "synthetic_test_execution_timing",
+            "return_measurement_start": "synthetic_test_measurement_start",
+            "return_measurement_end": "synthetic_test_measurement_end",
+            "market_session_basis": "synthetic_test_session_basis",
+            "market_timezone": "America/New_York",
+            "return_start_endpoint_inclusion": "included",
+            "return_end_endpoint_inclusion": "excluded",
+            "held_return_source_convention": "synthetic_test_held_return_convention",
+        },
+        "portfolio_construction": {
+            "selection_rule": "top_n",
+            "number_of_positions": 2,
+            "sizing_rule": "equal_weight",
+            "insufficient_eligible_policy": "fail",
+            "unfilled_capacity_policy": "not_applicable",
+        },
+        "terminal_position_policy": "fail_on_any_terminal_event",
+        "data_vintage_identifier": SYNTHETIC_RESEARCH_VINTAGE_BUNDLE,
         "environment_manifest": frozen_environment_fixture(),
         "source_control": {"vcs": "git", "commit": "a" * 40, "dirty": False},
         "transaction_cost_model": {
             "convention": "traded_notional_times_one_way_bps",
             "one_way_cost_bps": 100.0,
         },
+        "specification_counting_rules": dict(SPECIFICATION_COUNTING_RULES),
     })
     return payload
 
@@ -326,3 +390,97 @@ def fact(
         form_type="10-K" if str(frequency) in {"annual", "ReportingFrequency.ANNUAL"} else "10-Q",
         fiscal_year=fiscal_year,
     )
+
+
+def governed_fact_dataset(
+    rows: list[FactObservation] | tuple[FactObservation, ...],
+    *,
+    research_vintage_bundle_id: str = SYNTHETIC_RESEARCH_VINTAGE_BUNDLE,
+    source_native_vintage_identifier: str = "synthetic-fact-native-vintage",
+):
+    with tempfile.TemporaryDirectory() as temporary:
+        data_path = Path(temporary) / "facts.csv"
+        fields = [
+            "security_id", "field", "period_end", "available_at", "value",
+            "source", "accession", "unit", "period_type",
+            "reporting_frequency", "form_type", "fiscal_year", "fiscal_quarter",
+        ]
+        with data_path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fields)
+            writer.writeheader()
+            for row in rows:
+                writer.writerow({
+                    "security_id": row.security_id,
+                    "field": row.field,
+                    "period_end": row.period_end.isoformat(),
+                    "available_at": row.available_at.isoformat(),
+                    "value": row.value,
+                    "source": row.source,
+                    "accession": row.accession or "",
+                    "unit": row.unit or "",
+                    "period_type": row.period_type.value,
+                    "reporting_frequency": row.reporting_frequency.value,
+                    "form_type": row.form_type or "",
+                    "fiscal_year": row.fiscal_year or "",
+                    "fiscal_quarter": row.fiscal_quarter or "",
+                })
+        manifest_path = Path(temporary) / "facts.manifest.json"
+        freeze_artifact(manifest_path, {
+            "source_manifest_schema_version": 2,
+            "source_kind": "pit_facts",
+            "source_id": "synthetic-fact-source",
+            "research_vintage_bundle_id": research_vintage_bundle_id,
+            "source_native_vintage_identifier": source_native_vintage_identifier,
+            "content_sha256": hashlib.sha256(data_path.read_bytes()).hexdigest(),
+            "audit_artifact_sha256": "f" * 64,
+            "provenance": "audited_local_ingest_manifest",
+        })
+        return load_governed_fact_dataset(data_path, manifest_path)
+
+
+def governed_return_source(
+    rows: list[HeldPeriodReturnObservation],
+    *,
+    research_vintage_bundle_id: str = SYNTHETIC_RESEARCH_VINTAGE_BUNDLE,
+    source_native_vintage_identifier: str = "synthetic-return-native-vintage",
+    economic_return_convention: dict[str, str] | None = None,
+):
+    with tempfile.TemporaryDirectory() as temporary:
+        data_path = Path(temporary) / "returns.csv"
+        with data_path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=[
+                "security_id", "period_start", "period_end", "total_return",
+                "terminal_flag",
+            ])
+            writer.writeheader()
+            for row in rows:
+                writer.writerow({
+                    "security_id": row.security_id,
+                    "period_start": row.period_start.isoformat(),
+                    "period_end": row.period_end.isoformat(),
+                    "total_return": row.total_return,
+                    "terminal_flag": str(row.terminal_flag).lower(),
+                })
+        manifest_path = Path(temporary) / "returns.manifest.json"
+        freeze_artifact(manifest_path, {
+            "source_manifest_schema_version": 2,
+            "source_kind": "held_period_returns",
+            "source_id": "synthetic-return-source",
+            "research_vintage_bundle_id": research_vintage_bundle_id,
+            "source_native_vintage_identifier": source_native_vintage_identifier,
+            "content_sha256": hashlib.sha256(data_path.read_bytes()).hexdigest(),
+            "audit_artifact_sha256": "e" * 64,
+            "provenance": "audited_local_ingest_manifest",
+            "economic_return_convention": ({
+                "decision_information_cutoff": "synthetic_test_information_cutoff",
+                "portfolio_execution_timing": "synthetic_test_execution_timing",
+                "return_measurement_start": "synthetic_test_measurement_start",
+                "return_measurement_end": "synthetic_test_measurement_end",
+                "market_session_basis": "synthetic_test_session_basis",
+                "market_timezone": "America/New_York",
+                "return_start_endpoint_inclusion": "included",
+                "return_end_endpoint_inclusion": "excluded",
+                "held_return_source_convention": "synthetic_test_held_return_convention",
+            } if economic_return_convention is None else economic_return_convention),
+        })
+        return load_governed_held_return_source(data_path, manifest_path)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, is_dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 import hashlib
 import importlib.metadata
@@ -28,6 +28,12 @@ from .domain import (
     RoleKind,
     SameOffsetAlignment,
     UNRESOLVED,
+)
+from .timing import (
+    ECONOMIC_RETURN_DESCRIPTOR_FIELDS,
+    ResolvedPortfolioTiming,
+    TIMING_KEYS,
+    TimingError,
 )
 
 
@@ -54,8 +60,10 @@ ENTRY_001_REQUIRED_KEYS = frozenset({
     "construct_kill_conditions",
     "system_kill_condition",
     "rule_17",
-    "rebalance_frequency",
-    "holding_period",
+    "portfolio_timing",
+    "portfolio_construction",
+    "terminal_position_policy",
+    "data_vintage_identifier",
     "robustness_alternatives",
     "environment_manifest",
     "source_control",
@@ -94,6 +102,36 @@ _PIT_CONVENTION_KEYS = frozenset({
     "restatement_policy",
     "availability_timestamp",
 })
+_SAMPLE_BOUNDARY_KEYS = frozenset({
+    "development",
+    "holdout_a",
+    "holdout_b",
+    "partition_overlap_policy",
+    "partition_gap_policy",
+    "shared_boundary_assignment_rule",
+})
+_SAMPLE_PARTITION_KEYS = frozenset({
+    "start",
+    "end",
+    "start_boundary_rule",
+    "end_boundary_rule",
+})
+_PORTFOLIO_CONSTRUCTION_KEYS = frozenset({
+    "selection_rule",
+    "number_of_positions",
+    "sizing_rule",
+    "insufficient_eligible_policy",
+    "unfilled_capacity_policy",
+})
+SPECIFICATION_COUNTING_RULES = {
+    "research_specification": "reserve_one_slot_at_open",
+    "diagnostic": "no_research_slot",
+    "data_correction": "no_research_slot_requires_invalidated_specification",
+    "blocked_pre_open": "no_research_slot",
+    "post_open_failure": (
+        "retain_reservation_no_release_mechanism_pending_researcher_resolution"
+    ),
+}
 _AVAILABILITY_TIMESTAMP_CONVENTION = (
     "actual public filing or announcement timestamp"
 )
@@ -244,6 +282,14 @@ class ResolvedEntry001:
     missing_data_policy: Mapping[str, Any]
     required_dimensions: tuple[str, ...]
     restatement_policy: RestatementPolicy
+    portfolio_timing: ResolvedPortfolioTiming
+    sample_boundaries: Mapping[str, Any]
+    portfolio_construction: Mapping[str, Any]
+    terminal_position_policy: str
+    data_vintage_identifier: str
+    specification_budget: int
+    transaction_cost_model: Mapping[str, Any]
+    specification_counting_rules: Mapping[str, Any]
 
     def __init__(
         self,
@@ -253,6 +299,14 @@ class ResolvedEntry001:
         missing_data_policy: Mapping[str, Any],
         required_dimensions: tuple[str, ...],
         restatement_policy: RestatementPolicy,
+        portfolio_timing: ResolvedPortfolioTiming,
+        sample_boundaries: Mapping[str, Any],
+        portfolio_construction: Mapping[str, Any],
+        terminal_position_policy: str,
+        data_vintage_identifier: str,
+        specification_budget: int,
+        transaction_cost_model: Mapping[str, Any],
+        specification_counting_rules: Mapping[str, Any],
         *,
         _token: object,
     ) -> None:
@@ -267,6 +321,26 @@ class ResolvedEntry001:
             self,
             "restatement_policy",
             RestatementPolicy(restatement_policy),
+        )
+        object.__setattr__(self, "portfolio_timing", portfolio_timing)
+        object.__setattr__(self, "sample_boundaries", dict(sample_boundaries))
+        object.__setattr__(
+            self, "portfolio_construction", dict(portfolio_construction)
+        )
+        object.__setattr__(
+            self, "terminal_position_policy", terminal_position_policy
+        )
+        object.__setattr__(
+            self, "data_vintage_identifier", data_vintage_identifier
+        )
+        object.__setattr__(self, "specification_budget", specification_budget)
+        object.__setattr__(
+            self, "transaction_cost_model", dict(transaction_cost_model)
+        )
+        object.__setattr__(
+            self,
+            "specification_counting_rules",
+            dict(specification_counting_rules),
         )
 
 
@@ -778,6 +852,231 @@ def freeze_entry_001(
     return freeze_artifact(path, wrapped)
 
 
+def _validate_portfolio_timing_structure(value: Any) -> None:
+    if not isinstance(value, Mapping):
+        raise MalformedEntry001V2("portfolio_timing must be an object")
+    _require_exact_keys(value, TIMING_KEYS, "portfolio_timing")
+    closed_fields = {
+        "calendar_basis": {UNRESOLVED, "calendar_days", "calendar_months"},
+        "rebalance_date_convention": {
+            UNRESOLVED,
+            "calendar_month_end",
+            "calendar_quarter_end",
+            "fixed_n_calendar_days",
+        },
+        "month_end_convention": {
+            UNRESOLVED,
+            "civil_calendar_month_end",
+            "not_applicable",
+        },
+        "anchor_semantics": {
+            UNRESOLVED,
+            "first_valid_date",
+            "cadence_epoch",
+            "not_applicable",
+        },
+        "holding_period_rule": {
+            UNRESOLVED,
+            "rebalance_interval",
+            "fixed_calendar_days",
+            "fixed_calendar_months",
+        },
+        "return_interval_start_rule": {UNRESOLVED, "decision_date"},
+        "return_interval_end_rule": {
+            UNRESOLVED,
+            "next_scheduled_decision_date",
+            "fixed_calendar_days_after_decision",
+            "fixed_calendar_months_after_decision",
+        },
+        "return_start_endpoint_inclusion": {UNRESOLVED, "included", "excluded"},
+        "return_end_endpoint_inclusion": {UNRESOLVED, "included", "excluded"},
+    }
+    for name, supported in closed_fields.items():
+        if not isinstance(value[name], str) or value[name] not in supported:
+            raise MalformedEntry001V2(
+                f"portfolio_timing.{name} is unsupported"
+            )
+    for name in ECONOMIC_RETURN_DESCRIPTOR_FIELDS:
+        item = value[name]
+        if item != UNRESOLVED and (
+            not isinstance(item, str) or not item.strip()
+        ):
+            raise MalformedEntry001V2(
+                f"portfolio_timing.{name} must be a non-empty descriptor"
+            )
+    for name in ("rebalance_interval_count", "holding_period_interval_count"):
+        item = value[name]
+        if item != UNRESOLVED and item != "not_applicable" and (
+            not isinstance(item, int) or isinstance(item, bool) or item <= 0
+        ):
+            raise MalformedEntry001V2(
+                f"portfolio_timing.{name} must be a positive integer"
+            )
+    equals = value["holding_period_equals_rebalance_interval"]
+    if equals != UNRESOLVED and not isinstance(equals, bool):
+        raise MalformedEntry001V2(
+            "holding_period_equals_rebalance_interval must be boolean"
+        )
+    anchor = value["schedule_anchor_date"]
+    if anchor != UNRESOLVED and anchor != "not_applicable":
+        try:
+            date.fromisoformat(str(anchor))
+        except (TypeError, ValueError) as exc:
+            raise MalformedEntry001V2(
+                "schedule_anchor_date must be an ISO date"
+            ) from exc
+    market_timezone = value["market_timezone"]
+    if market_timezone != UNRESOLVED and (
+        not isinstance(market_timezone, str) or not market_timezone.strip()
+    ):
+        raise MalformedEntry001V2(
+            "portfolio_timing.market_timezone must be a non-empty IANA zone"
+        )
+    if _find_unresolved(value):
+        return
+    try:
+        ResolvedPortfolioTiming.from_mapping(value)
+    except TimingError as exc:
+        raise MalformedEntry001V2(str(exc)) from exc
+
+
+def _validate_sample_boundaries_structure(value: Any) -> None:
+    if not isinstance(value, Mapping):
+        raise MalformedEntry001V2("sample_boundaries must be an object")
+    _require_exact_keys(value, _SAMPLE_BOUNDARY_KEYS, "sample_boundaries")
+    for name in ("development", "holdout_a", "holdout_b"):
+        partition = value[name]
+        if not isinstance(partition, Mapping):
+            raise MalformedEntry001V2(f"sample_boundaries.{name} must be an object")
+        _require_exact_keys(
+            partition,
+            _SAMPLE_PARTITION_KEYS,
+            f"sample_boundaries.{name}",
+        )
+        for boundary_name in ("start_boundary_rule", "end_boundary_rule"):
+            rule = partition[boundary_name]
+            if rule not in {UNRESOLVED, "included", "excluded"}:
+                raise MalformedEntry001V2(
+                    f"sample_boundaries.{name}.{boundary_name} is unsupported"
+                )
+        for endpoint in ("start", "end"):
+            raw = partition[endpoint]
+            if raw != UNRESOLVED:
+                try:
+                    date.fromisoformat(str(raw))
+                except (TypeError, ValueError) as exc:
+                    raise MalformedEntry001V2(
+                        f"sample_boundaries.{name}.{endpoint} must be an ISO date"
+                    ) from exc
+    policies = {
+        "partition_overlap_policy": {UNRESOLVED, "forbid", "allow"},
+        "partition_gap_policy": {UNRESOLVED, "forbid", "allow"},
+        "shared_boundary_assignment_rule": {
+            UNRESOLVED,
+            "earlier_partition",
+            "later_partition",
+            "both",
+            "not_applicable",
+        },
+    }
+    for name, supported in policies.items():
+        if value[name] not in supported:
+            raise MalformedEntry001V2(f"sample_boundaries.{name} is unsupported")
+
+
+def _validate_resolved_sample_boundaries(value: Mapping[str, Any]) -> None:
+    intervals: list[tuple[str, date, date, bool, bool]] = []
+    for name in ("development", "holdout_a", "holdout_b"):
+        partition = value[name]
+        start = date.fromisoformat(partition["start"])
+        end = date.fromisoformat(partition["end"])
+        if end < start:
+            raise MalformedEntry001V2(f"sample_boundaries.{name} ends before start")
+        intervals.append((
+            name,
+            start,
+            end,
+            partition["start_boundary_rule"] == "included",
+            partition["end_boundary_rule"] == "included",
+        ))
+    for prior, current in zip(intervals, intervals[1:]):
+        _, _prior_start, prior_end, _prior_start_in, prior_end_in = prior
+        _, current_start, _current_end, current_start_in, _current_end_in = current
+        prior_last = prior_end if prior_end_in else prior_end - timedelta(days=1)
+        current_first = (
+            current_start if current_start_in else current_start + timedelta(days=1)
+        )
+        overlaps = current_first <= prior_last
+        has_gap = current_first > prior_last + timedelta(days=1)
+        if overlaps and value["partition_overlap_policy"] == "forbid":
+            raise MalformedEntry001V2("sample partitions overlap under forbidden policy")
+        if has_gap and value["partition_gap_policy"] == "forbid":
+            raise MalformedEntry001V2("sample partitions contain a forbidden gap")
+    shared = value["shared_boundary_assignment_rule"]
+    if value["partition_overlap_policy"] == "allow" and shared == "not_applicable":
+        raise MalformedEntry001V2(
+            "allowed overlap requires a shared-boundary assignment rule"
+        )
+
+
+def _validate_portfolio_construction_structure(value: Any) -> None:
+    if not isinstance(value, Mapping):
+        raise MalformedEntry001V2("portfolio_construction must be an object")
+    _require_exact_keys(
+        value,
+        _PORTFOLIO_CONSTRUCTION_KEYS,
+        "portfolio_construction",
+    )
+    if value["selection_rule"] not in {UNRESOLVED, "top_n"}:
+        raise MalformedEntry001V2("portfolio selection_rule supports only top_n")
+    if value["sizing_rule"] not in {UNRESOLVED, "equal_weight"}:
+        raise MalformedEntry001V2("portfolio sizing_rule supports only equal_weight")
+    count = value["number_of_positions"]
+    if count != UNRESOLVED and (
+        not isinstance(count, int) or isinstance(count, bool) or count <= 0
+    ):
+        raise MalformedEntry001V2("number_of_positions must be positive")
+    if value["insufficient_eligible_policy"] not in {
+        UNRESOLVED,
+        "fail",
+        "skip_rebalance_date",
+        "hold_available_names",
+    }:
+        raise MalformedEntry001V2("insufficient_eligible_policy is unsupported")
+    if value["unfilled_capacity_policy"] not in {
+        UNRESOLVED,
+        "redistribute_to_available_names",
+        "hold_cash",
+        "not_applicable",
+    }:
+        raise MalformedEntry001V2("unfilled_capacity_policy is unsupported")
+
+
+def _validate_resolved_portfolio_construction(value: Mapping[str, Any]) -> None:
+    if value["selection_rule"] != "top_n":
+        raise MalformedEntry001V2("governed selection_rule must be top_n")
+    if value["sizing_rule"] != "equal_weight":
+        raise MalformedEntry001V2("governed sizing_rule must be equal_weight")
+    count = value["number_of_positions"]
+    if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
+        raise MalformedEntry001V2("number_of_positions must be positive")
+    policy = value["insufficient_eligible_policy"]
+    unfilled = value["unfilled_capacity_policy"]
+    if policy == "hold_available_names":
+        if unfilled == "hold_cash":
+            raise MalformedEntry001V2(
+                "hold_cash is unsupported without governed cash returns"
+            )
+        if unfilled != "redistribute_to_available_names":
+            raise MalformedEntry001V2(
+                "hold_available_names requires redistribute_to_available_names"
+            )
+    elif unfilled != "not_applicable":
+        raise MalformedEntry001V2(
+            "unfilled_capacity_policy must be not_applicable for this policy"
+        )
+
+
 def _validate_entry_001(
     payload: Mapping[str, Any],
     *,
@@ -803,6 +1102,28 @@ def _validate_entry_001(
     if wrapper_keys_present and allow_artifact_wrapper and payload["entry"] != "001":
         raise MalformedEntry001V2("frozen Entry 001 marker must be '001'")
     _validate_proxy_registry_structure(payload["proxy_registry"])
+    _validate_portfolio_timing_structure(payload["portfolio_timing"])
+    _validate_sample_boundaries_structure(payload["sample_boundaries"])
+    _validate_portfolio_construction_structure(payload["portfolio_construction"])
+    if payload["terminal_position_policy"] not in {
+        UNRESOLVED,
+        "fail_on_any_terminal_event",
+    }:
+        raise MalformedEntry001V2(
+            "terminal_position_policy is not executable end to end"
+        )
+    vintage = payload["data_vintage_identifier"]
+    if vintage != UNRESOLVED and (
+        not isinstance(vintage, str) or not vintage.strip()
+    ):
+        raise MalformedEntry001V2(
+            "data_vintage_identifier must be a non-empty research bundle ID"
+        )
+    budget = payload["specification_budget"]
+    if budget != UNRESOLVED and (
+        not isinstance(budget, int) or isinstance(budget, bool) or budget <= 0
+    ):
+        raise GovernanceError("specification_budget must be a positive integer")
     required_dimensions = payload["required_dimensions"]
     if (
         not isinstance(required_dimensions, list)
@@ -825,11 +1146,31 @@ def _validate_entry_001(
     _validate_environment_manifest_structure(payload["environment_manifest"])
     _validate_source_control_section_structure(payload["source_control"])
     _validate_transaction_cost_model_structure(payload["transaction_cost_model"])
+    counting = payload["specification_counting_rules"]
+    if not isinstance(counting, Mapping) or dict(counting) != SPECIFICATION_COUNTING_RULES:
+        raise MalformedEntry001V2(
+            "specification_counting_rules must match the Run 2 OPEN reservation invariants"
+        )
     unresolved = _find_unresolved(payload)
     if unresolved:
         raise UnresolvedEntry001(
             "Entry 001 contains unresolved placeholders: "
             + ", ".join(unresolved[:20])
+        )
+    try:
+        ResolvedPortfolioTiming.from_mapping(payload["portfolio_timing"])
+    except TimingError as exc:
+        raise MalformedEntry001V2(str(exc)) from exc
+    _validate_resolved_sample_boundaries(payload["sample_boundaries"])
+    _validate_resolved_portfolio_construction(payload["portfolio_construction"])
+    if payload["terminal_position_policy"] != "fail_on_any_terminal_event":
+        raise MalformedEntry001V2("terminal policy is unsupported")
+    if (
+        not isinstance(payload["data_vintage_identifier"], str)
+        or not payload["data_vintage_identifier"].strip()
+    ):
+        raise MalformedEntry001V2(
+            "data_vintage_identifier must be a non-empty research bundle ID"
         )
     empty = sorted(
         key
@@ -1115,6 +1456,16 @@ def load_resolved_entry_001(path: str | Path) -> ResolvedEntry001:
         missing_data_policy=payload["missing_data_policy"],
         required_dimensions=tuple(payload["required_dimensions"]),
         restatement_policy=payload["pit_conventions"]["restatement_policy"],
+        portfolio_timing=ResolvedPortfolioTiming.from_mapping(
+            payload["portfolio_timing"]
+        ),
+        sample_boundaries=payload["sample_boundaries"],
+        portfolio_construction=payload["portfolio_construction"],
+        terminal_position_policy=payload["terminal_position_policy"],
+        data_vintage_identifier=payload["data_vintage_identifier"],
+        specification_budget=payload["specification_budget"],
+        transaction_cost_model=payload["transaction_cost_model"],
+        specification_counting_rules=payload["specification_counting_rules"],
         _token=_RESOLVED_ENTRY_TOKEN,
     )
 
@@ -1248,31 +1599,3 @@ def source_control_manifest(repository: str | Path) -> dict[str, Any]:
     if re.fullmatch(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", commit) is None:
         raise GovernanceError("source-control manifest did not produce a full commit hash")
     return result
-
-
-@dataclass(frozen=True)
-class SpecificationLogEntry:
-    specification_id: str
-    code_hash: str
-    data_vintage: str
-    rationale: str
-    result: str
-    disposition: str
-    timestamp: str = ""
-
-
-def append_specification_log(path: str | Path, entry: SpecificationLogEntry) -> None:
-    """Append and fsync one JSON line; existing records are never rewritten."""
-
-    payload = asdict(entry)
-    if not payload["timestamp"]:
-        payload["timestamp"] = datetime.now(timezone.utc).isoformat()
-    line = canonical_json(payload) + b"\n"
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
-    try:
-        os.write(descriptor, line)
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
