@@ -3,13 +3,15 @@
 ## 1. Identity and status
 
 **Status:** DRAFT — not final, not frozen
-**Authority:** approved successor direction under ADR-001; this draft becomes
-governing authority only when the researcher approves its completed text.
+**Authority:** ADR-001 approves v3.2 as the post-Run-2 successor direction.
+This exact document becomes governing authority only after the researcher
+explicitly approves its immutable repository/path/commit/blob/SHA-256 identity.
+Until that external human approval event, it remains draft text.
 **Stage:** post-Run-2, before Entry 000 and before the Batch 2 data audit.
 **Outcome attestation:** no realized strategy outcome was examined in preparing
-this draft. No Entry 000 or Entry 001 artifact has been frozen.
+this draft.
 
-Architecture v3.2 is the governing post-Run-2 successor architecture.
+Architecture v3.2 is the proposed post-Run-2 successor architecture.
 Architecture v3.1 remains immutable historical evidence. Nothing in this draft
 rewrites v3.1 or represents a later decision as part of the original source.
 
@@ -94,8 +96,9 @@ exact v3.1 supersession from Run 2.
 
 ## 7. Batch 1 approved intent
 
-The authoritative detailed record is
-`docs/research/Batch1_Research_Intent_Draft.md`.
+The proposed detailed record of the separately approved Q1/Q2/Q3/Q5/Q8 intent
+is `docs/research/Batch1_Research_Intent_Draft.md`. It becomes authoritative
+only when the researcher approves its exact immutable identity.
 
 - **Q1:** the screen finds operating-company candidates combining attractive
   valuation, strong business economics, and improving fundamentals; it is not a
@@ -119,7 +122,7 @@ The following remain unresolved and must not acquire defaults in this draft:
 | U-002 | universe thresholds, fields, windows, currencies, timestamps, adjustments, seasoning duration | researcher after Batch 2 |
 | U-003 | exact accounting normalization and denominator thresholds | researcher after data audit |
 | U-004 | exact surviving Proxy Registry formulas | audit plus researcher approval |
-| U-005 | sample boundaries | valid PIT coverage after audit |
+| U-005 | sample boundaries | researcher decision after reviewing valid PIT coverage |
 | U-006 | exact specification budget | researcher before Entry 001/outcomes |
 | U-007 | portfolio timing, costs, terminal/cash rules, and statistical procedures | researcher before Entry 001/outcomes |
 | U-008 | valid historical market-price/EV construction and market-role alignment | Batch 2 evidence and researcher approval |
@@ -134,8 +137,9 @@ Material values require source provenance, actual availability timestamps,
 explicit first-reported/restated identity, and an approved restatement policy.
 Backfilled data, current classifications, current prices, nearest-date snapping,
 and later survivor membership cannot masquerade as contemporaneous facts.
-Disappointing coverage narrows the valid period transparently; it never lowers
-the PIT standard.
+Coverage evidence may demonstrate that only a shorter period satisfies the PIT
+standard and may propose that period to the researcher. It never automatically
+selects or freezes sample boundaries; those remain a researcher decision.
 
 ## 10. Survivorship-complete universe requirement
 
@@ -196,7 +200,7 @@ frozen for a screen; a budget is not a substitute for enumerating proxies.
 
 The separate Screen Specification governs only:
 
-`historical universe → PIT facts → accounting semantics → Proxy Registry → ranking configuration → deterministic ranked candidate set`
+`historical universe → PIT facts → accounting semantics → Proxy Registry → ranking configuration → GovernedRankingArtifact`
 
 It is not a BUY list, portfolio specification, or outcome-evaluation
 specification. It cannot consume, calculate, inspect, summarize, serialize, or
@@ -204,14 +208,27 @@ expose realized outcomes. Screen construction consumes no outcome-research slot
 and requires no OPEN/CLOSE. The detailed proposed contract is
 `docs/architecture/Screen_Specification_v1_Draft.md`.
 
-## 18. Ranked-artifact lineage
+## 18. Ranking, candidate-set, and regeneration identities
 
-The deterministic candidate artifact must bind its Screen Specification,
-universe and security-master identities, fact sources, accounting semantics,
-Proxy Registry, ranking configuration, research vintage, source manifests,
-relevant code commits, exact decision-bearing digest scope, and content digest.
-Selector authority may not exceed digest scope. Auxiliary output cannot influence
-selection unless it is brought into a new versioned bound scope.
+The existing Run 2 `GovernedRankingArtifact` retains its exact semantic
+boundary: its decision-bearing `ranked_content_digest` covers only ordered
+`security_id`, `decision_date`, and `composite_score`, and its governed ranking
+selector may read only those fields. This digest is not broadened for screening.
+
+A separate future `GovernedCandidateSetArtifact`, never the ranking artifact,
+will apply a frozen membership/cutoff rule before deep research. It must bind
+the frozen Screen Specification, exact ranking identity/digest, ranking
+configuration digest, membership-rule digest, cutoff-rule digest, tie-break
+digest, decision-date set, exact candidate rows, and reproducibility lineage.
+Candidate count and threshold remain unresolved; no rule is selected here.
+
+A distinct `screen_regeneration_identity` binds the resolved/frozen Screen
+Specification, universe and security-master digests, immutable snapshots,
+accounting and Proxy Registry digests, ranking configuration, dimensions,
+decision-date-set digest, code and environment identities, canonicalization,
+the exact ranking digest, and (when produced) exact candidate-set digest. Thus
+`ranked_content_digest != screen_regeneration_identity !=
+candidate_set_artifact_digest`.
 
 ## 19. Entry 000 architecture-package semantics
 
@@ -220,15 +237,16 @@ distinguish original v3.1 historical components from v3.2 current authority and
 bind deterministic order, paths, roles, SHA-256 identities, Git provenance,
 Run 1 and Run 2 commits, ADR approvals, Batch 1 record, amendment ledger, and
 no-outcome attestations. The draft package contract is
-`docs/architecture/Entry000_Package_v2_Draft.md`. No Entry 000 has been frozen.
+`docs/architecture/Entry000_Package_v2_Draft.md`. This draft performs no freeze.
 
 ## 20. Entry 001 full-experiment semantics
 
 Entry 001 remains the complete experiment freeze required before any realized-
 outcome evaluation. In addition to existing Run 1/2 fields, a future schema must
-bind the exact frozen Screen Specification and exact ranked artifact, digest,
-lineage, data vintage, and relevant commits. A different screen cannot be
-substituted after outcomes are observed.
+bind the exact frozen Screen Specification, screen-regeneration identity,
+ranking artifact identity/digest, and, when applicable, candidate-set
+identity/digest, with lineage, data vintage, and commits. Neither another
+ranking nor another candidate set may be substituted after outcomes are seen.
 
 ## 21. Outcome-governance boundary
 
@@ -304,7 +322,13 @@ schemas. Unsupported capability is not permission to approximate silently.
 | 3.1 | immutable historical source | closed pre-return architecture |
 | 3.2 Draft | draft | records ADR-001 through ADR-004, Run 1/2 reconciliation, and Batch 1 intent |
 
-## 30. Supersession and amendment ledger
+## 30. Informational amendment summary; separate ledger controls
+
+The table below is informational only. The machine-verifiable amendment ledger
+is a separately tracked, immutable, versioned artifact, independently approved
+and separately bound by Entry000. Changed governing ledger bytes require a new
+ledger version, bytes/hash/blob/commit, ledger approval, and Entry000 identity;
+an approved ledger is never silently mutated.
 
 | ID | Classification | Effect |
 |---|---|---|
