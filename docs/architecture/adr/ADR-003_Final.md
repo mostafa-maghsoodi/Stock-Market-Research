@@ -10,9 +10,9 @@ Outcome-free screen and outcome-governance boundary
 
 ## Status
 
-DRAFT — this document does not self-attest approval. Governing effect is
-determined only by the applicable external Approval Record identity and human
-approval process.
+FINAL — approval state is external to these bytes. This document does not
+self-attest approval. Governing effect is determined only by the applicable
+external Approval Record identity and human approval process.
 
 ## Decision
 

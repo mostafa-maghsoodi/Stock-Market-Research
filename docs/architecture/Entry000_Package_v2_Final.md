@@ -1,8 +1,11 @@
-# Entry000 Package v2 — Draft Contract
+# Entry000 Package v2 — Final Contract
 
 ## 1. Status and trust boundary
 
-Documentation only; not implemented, approved, or frozen. Current production
+**Status:** FINAL — approval state is external to these bytes. This document
+does not self-attest approval; governing approval is established externally
+under the applicable approved approval mechanism. It is not implemented or
+frozen. Current production
 `freeze_entry_000()` does **not** implement this contract. Architecture v3.1 is
 immutable historical evidence. ADR-001 approves v3.2's successor direction, but
 exact v3.2 bytes become authority only through external researcher approval of
@@ -85,9 +88,12 @@ The array is exactly, without duplicates or alternatives:
    `docs/architecture/Architecture_v3.1_Final.md`;
 2. `HISTORICAL_ARCHITECTURE_V3_1_PDF`, historical_source,
    `docs/architecture/Architecture_v3.1_Final.pdf`;
-3. `SUCCESSOR_ARCHITECTURE_V3_2`, current_authority, its approved path;
-4. `SCREEN_SPECIFICATION_CONTRACT_V1`, current_authority, its approved path;
-5. `BATCH1_RESEARCH_INTENT`, current_authority, its approved path;
+3. `SUCCESSOR_ARCHITECTURE_V3_2`, current_authority,
+   `docs/architecture/Architecture_v3.2_Final.md`;
+4. `SCREEN_SPECIFICATION_CONTRACT_V1`, current_authority,
+   `docs/architecture/Screen_Specification_v1_Final.md`;
+5. `BATCH1_RESEARCH_INTENT`, current_authority,
+   `docs/research/Batch1_Research_Intent_Final.md`;
 6. `AMENDMENT_LEDGER`, current_authority, its separately approved path.
 
 Historical components require null approval references. Components 3–6 require

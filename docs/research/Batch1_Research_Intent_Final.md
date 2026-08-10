@@ -1,14 +1,16 @@
-# Batch 1 Research Intent — Draft Decision Record
+# Batch 1 Research Intent — Final Decision Record
 
 ## Status and governing rule
 
-**Status:** DRAFT proposed detailed record of separately approved Q1, Q2, Q3,
-Q5, and Q8 intent. It becomes authoritative only when the researcher explicitly
-approves this file's exact immutable identity.
+**Status:** FINAL — approval state is external to these bytes. This document
+does not self-attest approval; governing approval is established externally
+under the applicable approved approval mechanism for its exact immutable
+identity. It records the separately approved Q1, Q2, Q3, Q5, and Q8 intent.
 **Architecture:** Architecture v3.2 successor direction; Architecture v3.1
 remains immutable historical evidence.
 **Research state:** before Batch 2; no vendor selected; no realized outcomes
-examined; this draft implements and freezes no artifact.
+examined. Final status is separate from implementation and freeze status; this
+document implements and freezes no artifact.
 
 For every decision below:
 
