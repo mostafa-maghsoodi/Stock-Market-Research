@@ -1,201 +1,260 @@
-# Entry 000 Architecture Package v2 — Draft Contract
+# Entry000 Package v2 — Draft Contract
 
-## 1. Status and scope
+## 1. Status and trust boundary
 
-**Status:** DRAFT — contract only; not implemented or frozen.
-**Proposed schema:** `entry_000_package_schema_version: 2`.
-**Current governing architecture:** Architecture v3.2, after approval.
+Documentation only; not implemented, approved, or frozen. Current production
+`freeze_entry_000()` does **not** implement this contract. Architecture v3.1 is
+immutable historical evidence. ADR-001 approves v3.2's successor direction, but
+exact v3.2 bytes become authority only through external researcher approval of
+their immutable identity.
 
-Architecture v3.1 remains immutable historical evidence. This contract freezes
-an ordered, provenance-bound architecture package and does not rewrite v3.1.
-No realized strategy outcome has been examined, and no Entry artifact has been
-frozen. No vendor is selected.
+Entry000 preserves evidence; it cannot manufacture approval by containing an
+approval ID, status, attestation, component, or approval-record bytes. Human
+approval of an exact approval-record identity is the external trust root.
+Machine verification proves integrity and consistency, never human intent absent
+a future approved signature mechanism.
 
-The existing `graham_research.governance.freeze_entry_000()` does **not**
-implement this contract. It hard-codes Architecture `3.1`, accepts one arbitrary
-text string, and lacks a component manifest and source provenance.
+## 2. Primitive and canonical rules
 
-## 2. Package identity
+Every schema is closed: exactly displayed keys, no extension maps. `sha256` is
+64 lowercase hex; Git commit/blob are 40 lowercase hex; paths are normalized,
+repository-relative, and contain no `..`; timestamps are RFC3339 UTC.
+`CanonicalJSON-v1` is UTF-8 JSON with lexicographically sorted object keys,
+array order preserved, no insignificant whitespace, finite numbers, and no
+Unicode normalization. Exact-byte hashes never normalize content.
 
-The closed top-level payload must contain:
+## 3. Exact package schema and identities
 
-- `entry: "000"`;
-- `entry_000_package_schema_version: 2`;
-- immutable `package_id`;
-- `current_governing_architecture_version: "3.2"`;
-- `created_at` in UTC;
-- canonicalization algorithm/version;
-- ordered `components` manifest;
-- Run 1 and Run 2 source commit identities;
-- approval identifiers;
-- amendment-ledger identity;
-- Batch 1 decision-record identity; and
-- structured approval and no-outcome attestations.
+```text
+Entry000PackageV2 = {
+ "entry_000_package_schema_version": 2,
+ "entry": "000",
+ "package_label": string,
+ "package_id": sha256,
+ "created_at_utc": timestamp,
+ "canonicalization_version": "CanonicalJSON-v1",
+ "repository_id": string,
+ "run_lineage": RunLineage,
+ "components": [AuthorityComponent x exactly 6],
+ "approval_evidence": [ApprovalEvidence, ...],
+ "attestations": PackageAttestations
+}
+RunLineage = {
+ "run1_commit": 40-lowercase-hex,
+ "run2_commit": "be1f9973e0aeeaaca80ab8f100a3de9a7a7c72db"
+}
+PackageAttestations = {
+ "no_realized_outcome_statement_version": 1,
+ "no_realized_outcome_statement": "No realized strategy outcome was examined in freezing this package.",
+ "prior_publication_statement_version": 1,
+ "prior_publication_statement": "No Entry000 Package v2 with this semantic package identity or publication path was previously frozen.",
+ "legacy_preservation_statement": "This freeze does not overwrite, mutate, relabel, upgrade, or reinterpret any legacy Entry000 or Entry001 artifact.",
+ "unresolved_values_remain_unresolved": true
+}
+```
 
-Unknown or missing fields fail closed.
+`package_label` and `created_at_utc` are non-authority publication metadata.
+`package_id = SHA256(CanonicalJSON-v1(package object excluding exactly
+package_label, package_id, and created_at_utc))`. The publication contains the
+complete object; `full_artifact_sha256` is stored only in the sidecar and hashes
+the exact complete artifact bytes. Thus labels/times do not change semantic
+identity, while every authority/evidence byte and rule does.
 
-## 3. Ordered component manifest
+## 4. Fixed authority components
 
-Components must appear in a schema-fixed deterministic role order:
+```text
+AuthorityComponent = {
+ "ordinal": 1|2|3|4|5|6,
+ "component_role": enum below,
+ "authority_class": "historical_source" | "current_authority",
+ "repository_relative_path": path,
+ "media_type": string,
+ "document_or_schema_version": string,
+ "source_commit": git_commit,
+ "git_blob": git_blob,
+ "exact_byte_sha256": sha256,
+ "byte_length": nonnegative integer,
+ "exact_bytes_base64": canonical base64 string,
+ "approval_record_identity": null | ApprovalRecordIdentity
+}
+```
 
-1. `historical_architecture_markdown` —
+The array is exactly, without duplicates or alternatives:
+
+1. `HISTORICAL_ARCHITECTURE_V3_1_MARKDOWN`, historical_source,
    `docs/architecture/Architecture_v3.1_Final.md`;
-2. `historical_architecture_pdf` —
+2. `HISTORICAL_ARCHITECTURE_V3_1_PDF`, historical_source,
    `docs/architecture/Architecture_v3.1_Final.pdf`;
-3. `successor_architecture` —
-   `docs/architecture/Architecture_v3.2_Draft.md` until approval creates an
-   approved successor path;
-4. `screen_specification_contract` — approved descendant of
-   `docs/architecture/Screen_Specification_v1_Draft.md`;
-5. `batch1_research_intent` — approved descendant of
-   `docs/research/Batch1_Research_Intent_Draft.md`; and
-6. `amendment_supersession_ledger` — the approved ledger identified by v3.2.
+3. `SUCCESSOR_ARCHITECTURE_V3_2`, current_authority, its approved path;
+4. `SCREEN_SPECIFICATION_CONTRACT_V1`, current_authority, its approved path;
+5. `BATCH1_RESEARCH_INTENT`, current_authority, its approved path;
+6. `AMENDMENT_LEDGER`, current_authority, its separately approved path.
 
-Draft components cannot be frozen as approved authority merely because their
-paths are listed here. Before Entry 000, each current-authority component must
-have an explicit approval ID and approved immutable identity.
+Historical components require null approval references. Components 3–6 require
+non-null, distinct approval-record identities whose subjects exactly equal the
+component identities. Presence never approves. The amendment ledger is a
+separate component, not an architecture section.
 
-Each component record must contain exactly:
+`source_commit` is the full commit whose tree contains the exact approved bytes
+at that exact path. It is not necessarily introduction, approval-record, or
+freeze commit unless that tree/path/blob condition holds. Decoded embedded bytes
+must match byte length, SHA-256, and Git blob.
 
-- deterministic ordinal;
-- component role;
-- authority class (`historical_source` or `current_authority`);
-- repository-relative source path;
-- media/content type;
-- SHA-256 of exact bytes;
-- Git blob ID where the component is tracked;
-- source commit ID where available;
-- document/schema version;
-- approval identifier or explicit historical-source designation; and
-- inclusion rationale.
+## 5. Closed approval-evidence closure
 
-The v3.1 components are `historical_source`; v3.2 and approved subordinate
-contracts are `current_authority`. Matching content does not permit a component
-to change roles.
+```text
+ApprovalRecordIdentity = {
+ "repository_id": string,
+ "approval_record_path": path,
+ "approval_record_commit": git_commit,
+ "approval_record_git_blob": git_blob,
+ "approval_record_exact_byte_sha256": sha256
+}
+ApprovalEvidence = {
+ "approval_record_identity": ApprovalRecordIdentity,
+ "approval_record_byte_length": nonnegative integer,
+ "approval_record_exact_bytes_base64": canonical base64 string
+}
+```
 
-## 4. Source commits and approval identities
+`approval_evidence` is ordered lexicographically by
+`approval_record_path`, has exactly one element for every distinct referenced
+approval identity and no unreferenced element. Decoded bytes match length,
+SHA-256, and blob and parse under Approval Record v1. The referenced human
+approval event remains external. Supersession/revocation evidence is included
+when needed to establish current status; the closure contains the complete
+predecessor chain, with each record once, topologically predecessor-first.
 
-The package must separately bind:
+## 6. Intrinsic and repository-backed verification
 
-- Run 1 commit `587051d`;
-- Run 2 commit `be1f9973e0aeeaaca80ab8f100a3de9a7a7c72db`;
-- the exact commit containing approved architecture components;
-- ADR-001, ADR-002, ADR-003, and ADR-004;
-- the approval identity for the completed Architecture v3.2;
-- the approval identity for the Screen Specification contract; and
-- the Batch 1 Q1/Q2/Q3/Q5/Q8 decision-record identity.
+Intrinsic verification requires no repository: decode all component and
+approval bytes; validate exact schemas, order, identities, hashes, blob hashes,
+approval closure/status, package ID, attestations, and sidecar/full artifact
+hash. It reports `INTRINSIC_VERIFIED`, not Git provenance verified.
 
-Abbreviated commits may be displayed, but stored provenance must use the full
-object identity resolved and attested at freeze time.
+Repository-backed verification first passes intrinsic verification, then proves
+repository identity and that each component/approval commit tree contains the
+recorded path, blob, and exact bytes. It reports `REPOSITORY_VERIFIED`. Neither
+mode independently proves human intent. Missing repository access can prevent
+the stronger mode but cannot prevent intrinsic verification.
 
-## 5. Amendment and Batch 1 identities
+## 7. Sidecar, uniqueness, and publication layout
 
-The amendment ledger must have its own component role, schema/version, path,
-SHA-256, Git provenance, and approval identity. It must distinguish inherited,
-clarified, extended, gap-filled, and exactly superseded rules.
+Final publication directory is `artifacts/entry000/v2/<package_id>`; its
+artifact path is `entry000.package.json`; sidecar is the same directory's
+`entry000.package.sha256` and contains exactly
+`<full_artifact_sha256>  entry000.package.json\n`. The package ID uniquely maps
+to one semantic payload. The final directory uniquely maps to that ID. A valid
+existing final directory makes any retry fail as already published—even if only
+label/time differs. An inconsistent, partial, symlinked, or different final path
+fails closed and is never replaced.
 
-The Batch 1 record must bind only Q1, Q2, Q3, Q5, and Q8 and preserve unresolved
-operational values. It must include the escalation rule:
+## 8. Normative publication and failure state machine
 
-`unsupported capability → return to researcher → no silent substitution`
+Artifact states are exactly `ABSENT`, `BUILDING_PRIVATE`, `READY_PRIVATE`,
+`PUBLISHED`, and `FAILED_PRIVATE`; `SUCCESS` is an operation result. Only a
+final-path-verified `PUBLISHED` package is authority.
 
-## 6. No-outcome and approval attestations
+After deriving `package_id` and the final path, acquire a process-held exclusive
+lock keyed by exactly `(repository_identity, artifact_type, semantic_identity,
+final_publication_path)`, using the package `repository_id`, artifact type
+`ENTRY000_PACKAGE_V2`, `package_id`, and section 7 path. The lock exists only
+while owned by a live process/file handle and ends automatically on handle close
+or process termination. It is not permanent authority state; a stale directory
+is not a lock. A live competing owner causes no modification or competing
+attempt and returns `LIVE_PUBLICATION_ATTEMPT_EXISTS`; callers may retry later.
 
-Attestations must be structured records rather than one hard-coded sentence.
-They must identify the attested scope, statement version, approving actor/ID,
-timestamp, and relevant component/package digest. Required statements include:
+Create a uniquely named private attempt directory on the final publication
+filesystem and enter `BUILDING_PRIVATE`. Exclusively write canonical package
+bytes, flush and `fsync`; write the exact section 7 sidecar bytes, flush and
+`fsync`; and `fsync` the private directory. The sidecar contains only its governed
+digest binding—no metadata, diagnostics, source values, or outcomes. Intrinsically
+verify the complete private publication, then enter `READY_PRIVATE`.
 
-1. original v3.1 is preserved as historical evidence;
-2. v3.2 is the approved successor authority;
-3. no realized strategy outcome was examined in approving the architecture
-   package or its screen-stage boundary;
-4. no Entry 000 or Entry 001 existed before this freeze operation; and
-5. unresolved operational decisions remain unresolved rather than defaulted.
+Immediately before rename, recheck that the final directory does not exist. If
+absent, atomically rename the complete private directory to it without overwrite,
+`fsync` the parent, verify from final paths, enter `PUBLISHED`, release the lock,
+and only then return `SUCCESS`.
 
-The implementation may verify structure and identity; it cannot infer the truth
-of researcher attestations and therefore requires explicit approval inputs.
+If a final publication exists and verifies to the same `package_id`, release the
+lock and return `ALREADY_EXISTS_VERIFIED`, without publishing anew. If it fails
+verification, return `CORRUPT_EXISTING_PUBLICATION`; never repair or overwrite it.
+A required path or human label already bound to different semantic content
+returns `PUBLICATION_IDENTITY_CONFLICT`. Never rename over, mutate, repair in
+place, republish over, or reuse a published artifact/sidecar/label/path for
+different semantic content.
 
-## 7. Deterministic canonicalization
+Every failure before final publication enters `FAILED_PRIVATE`: the attempt
+created no final path or authority; handles close safely and release the process
+lock; normal discovery/verifiers ignore the private directory; and retry may use
+the same semantic identity, if no valid final exists, only in a new attempt
+directory. Private/stale/failed attempts never reserve identity or block retry.
+Governed cleanup may delete one only when all hold: no live lock owns it, it is
+not the final path, and it cannot verify as `PUBLISHED`. Cleanup never edits or
+removes a published artifact. Only valid `PUBLISHED` permanently reserves the
+semantic identity, final path, and any uniqueness-governed label.
 
-The package digest must be computed from canonical UTF-8 JSON using a named,
-versioned algorithm: exact-key objects, lexicographically sorted object keys,
-schema-prescribed component-array order, no insignificant whitespace, normalized
-UTC timestamps, lowercase SHA-256 hexadecimal, full Git object IDs, and no NaN
-or infinity. Component hashes are over exact file bytes, not normalized text.
+## 9. Exact legacy dispatch
 
-The package must not embed an untyped concatenation of component text as an
-alternative identity.
+If `entry_000_package_schema_version` exists, dispatch only an explicitly
+supported version; unknown values fail closed. Version 2 must match this schema.
+It is never retried as legacy.
 
-## 8. Freeze and sidecar semantics
+If the key is absent, recognize legacy Entry000 v1 only when all hold:
 
-Freeze must:
+```text
+LegacyEntry000V1 exact keys = {
+ "entry", "architecture_version", "created_at", "architecture_sha256",
+ "architecture_text", "statement", "unresolved_operational_items"
+}
+entry == "000"
+architecture_version == "3.1"
+architecture_text MUST be a JSON string
+architecture_sha256 == SHA256(exact UTF8 bytes of architecture_text)
+created_at MUST be a JSON string matching exactly
+  YYYY-MM-DDTHH:MM:SS+00:00 or YYYY-MM-DDTHH:MM:SS.ffffff+00:00
+  with valid Gregorian/date/time fields; fractional seconds are either absent
+  or exactly six digits, matching datetime.now(timezone.utc).isoformat()
+created_at MUST parse as timezone-aware UTC with offset exactly +00:00 and
+  Python isoformat() round-trip to the identical input bytes; "Z", offset
+  alternatives, whitespace, normalization, and other spellings fail
+statement == "No strategy-return results were examined in designing Architecture v3.1."
+unresolved_operational_items == [
+ "data-audit findings",
+ "exact investable-universe values",
+ "proxy-registry formulas selected for the cycle",
+ "estimate-data admissibility",
+ "sample boundaries",
+ "numeric specification budget",
+ "transaction costs",
+ "rebalance frequency and holding period",
+ "audit-dependent statistical implementation details"
+]
+no extra keys; no v2-only keys
+artifact bytes == canonical_json(payload) followed by one LF byte
+legacy sidecar path == artifact path with ".sha256" appended to its suffix
+legacy sidecar bytes == SHA256(canonical_json(payload)) + two ASCII spaces +
+artifact basename + one LF byte
+```
 
-1. require a clean, explicitly identified repository and full commit;
-2. resolve every prescribed path inside that repository;
-3. read and hash every exact component;
-4. resolve tracked Git blob IDs and source commits where available;
-5. validate roles, order, versions, approvals, attestations and exact keys;
-6. canonicalize the complete payload;
-7. atomically create the artifact without overwrite; and
-8. atomically create a sidecar containing the package SHA-256 and artifact name.
+These are the exact historical producer keys and constants; there are no aliases.
+Approximate text, reordered items, or a renamed key fails. Anything else is
+unknown/ambiguous and fails. Legacy artifacts are
+never wrapped, upgraded, relabeled, rewritten, or reinterpreted as v2, nor are
+legacy Entry001 artifacts changed.
 
-A sidecar failure makes the freeze incomplete and must be surfaced for
-quarantine; it must never be reported as a successful Entry 000.
+## 10. Preconditions and unchanged research boundaries
 
-## 9. Verification semantics
+Components 3–6 and their approval records must already be approved exact bytes;
+all execution-time values must be resolved or explicitly remain later-stage
+researcher decisions. A changed governing ledger requires new ledger version,
+bytes/hash/blob/commit, approval, and package identity. No vendor, sample period,
+threshold, candidate rule, or budget is chosen here.
 
-Verification must independently:
-
-- validate schema/version and exact keys;
-- recompute package and sidecar digests;
-- verify deterministic component order;
-- rehash available repository components and compare exact bytes;
-- verify path, role, authority class, blob and commit provenance;
-- verify mandatory historical and current-authority components;
-- verify approval and no-outcome attestation structure; and
-- reject unsupported schema versions without fallback to v1 behavior.
-
-Verification of an archived package may use its embedded manifest and preserved
-component bytes or a separately defined archival bundle; repository revalidation
-must be reported distinctly from intrinsic package verification.
-
-## 10. Mandatory failures
-
-- **Wrong order:** fail when ordinals or role order differ from the schema.
-- **Missing component:** fail when either v3.1 source, v3.2 authority, Screen
-  Specification contract, Batch 1 record, or amendment ledger is absent.
-- **Hash mismatch:** fail when component bytes, stored SHA-256, package digest,
-  or sidecar disagree.
-- **Arbitrary-text substitution:** fail when a supplied blob lacks the required
-  tracked path, role, component identity, and provenance, even if its prose is
-  similar.
-- **Provenance mismatch:** fail on wrong repository, dirty tree, wrong commit or
-  blob, path escape, role substitution, or approval mismatch.
-- **Overwrite:** fail if artifact or sidecar already exists.
-- **Draft-as-approved:** fail if a current-authority component lacks the required
-  approval identity.
-
-## 11. Compatibility and migration
-
-Existing Entry 000 behavior is schema v1 in substance even though it lacks a
-package schema field. Existing artifacts must remain verifiable according to
-their original rules and must never be silently upgraded or relabeled as v2.
-
-Migration is a new freeze of an approved v2 package, not mutation of an old
-artifact. A v2 loader must dispatch explicitly by schema and reject ambiguous
-payloads. Architecture v3.1 text embedded in an old artifact remains only that
-artifact's historical content; it does not prove the v2 package identities.
-
-Future schema versions must preserve v2 verification or provide a separately
-versioned verifier. No compatibility path may weaken no-overwrite, provenance,
-component-order, approval, or no-outcome checks.
-
-## 12. Required implementation tests
-
-Tests must cover exact keys and schema dispatch; deterministic canonicalization;
-component ordering; exact byte hashes for Markdown and PDF; Git path/blob/commit
-provenance; clean/dirty trees; path escape; missing/duplicate/wrong-role
-components; arbitrary text substitution; changed approval IDs; malformed
-attestations; package and sidecar tampering; no-overwrite and partial-write
-failure; v1 verification without reinterpretation; v1-to-v2 non-mutation; and
-unsupported future-version rejection.
+Screen construction remains outcome-free and uses a private verified
+`ResolvedScreenSpecification`. Run 2 `GovernedRankingArtifact` retains only
+`security_id`, `decision_date`, and `composite_score` in its decision digest.
+Future CandidateSet is separate; regeneration identity differs from both
+digests. Future Entry001 binds exact applicable screen/regeneration/ranking/
+candidate identities before outcomes. Budget/OPEN/CLOSE, essential valuation,
+and full/date-effective survivorship remain unchanged.

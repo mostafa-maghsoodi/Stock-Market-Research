@@ -2,11 +2,13 @@
 
 ## Status and governing rule
 
-**Status:** DRAFT record of approved Q1, Q2, Q3, Q5, and Q8 intent only.
+**Status:** DRAFT proposed detailed record of separately approved Q1, Q2, Q3,
+Q5, and Q8 intent. It becomes authoritative only when the researcher explicitly
+approves this file's exact immutable identity.
 **Architecture:** Architecture v3.2 successor direction; Architecture v3.1
 remains immutable historical evidence.
 **Research state:** before Batch 2; no vendor selected; no realized outcomes
-examined; no Entry 000, Entry 001, or Screen Specification frozen.
+examined; this draft implements and freezes no artifact.
 
 For every decision below:
 
@@ -23,7 +25,7 @@ The systematic screen identifies operating-company candidates combining
 attractive valuation, strong business economics, and improving fundamentals.
 It generates candidates for later deep research and is not a final BUY list.
 
-### Known executable concept
+### Binding conceptual constraint
 
 The screen has exactly three required conceptual dimensions: Valuation,
 Business Economics, and Fundamental Change. Its output role is a deterministic
@@ -55,7 +57,7 @@ V1 includes primary-listed common operating-company equities. ADRs, secondary
 listings, preferred securities, and ETFs/funds are out of scope. Expansion
 requires a later separately governed scope change.
 
-### Known executable concept
+### Binding conceptual constraint
 
 The inclusion and exclusion categories are conceptually fixed. Eligibility is
 date-effective and applies to securities, listings, and operating-company type.
@@ -87,7 +89,7 @@ eligible securities remain represented if they later delist, go bankrupt, are
 acquired, change ticker or exchange, or otherwise disappear. Current-survivor-
 only construction is inadmissible.
 
-### Known executable concept
+### Binding conceptual constraint
 
 A stable security identity, effective-dated eligibility, and complete historical
 population are mandatory. Later disappearance cannot erase earlier eligibility.
@@ -118,7 +120,7 @@ The population must be practically tradable at each historical decision date
 and conceptually requires a broad size floor, price floor, liquidity floor, and
 listing-seasoning requirement.
 
-### Known executable concept
+### Binding conceptual constraint
 
 All four rule families belong in the primary population. Tiered or multiple
 co-primary universes are deferred and are not authorized here.
@@ -150,7 +152,7 @@ are Valuation, Business Economics, and Fundamental Change. Valuation may not be
 silently removed because historical market data or implementation support is
 difficult.
 
-### Known executable concept
+### Binding conceptual constraint
 
 A valuation measure must relate economic/accounting information known at the
 decision time to a historically valid contemporaneous price, market
