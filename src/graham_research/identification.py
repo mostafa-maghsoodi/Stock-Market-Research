@@ -74,7 +74,7 @@ def spearman_rank_correlation(left: Sequence[float], right: Sequence[float]) -> 
 class RankICResult:
     """Per-date cross-sectional ICs and their time-series summary.
 
-    ``t_stat`` uses the plain sample standard error across dates. It is
+    ``diagnostic_iid_t_stat`` uses the plain sample standard error across dates. It is
     unadjusted for autocorrelation or overlapping holding periods and must not
     substitute for the frozen dependence treatment in Entry 001.
     """
@@ -83,7 +83,7 @@ class RankICResult:
     mean: float | None
     std: float | None
     count: int
-    t_stat: float | None
+    diagnostic_iid_t_stat: float | None
     dates_total: int
     t_stat_method: str = "unadjusted_iid_time_series_standard_error"
 
@@ -94,7 +94,7 @@ def _summarize_ic_series(values: pd.Series) -> RankICResult:
     count = int(len(valid))
     mean = float(valid.mean()) if count else None
     std = float(valid.std(ddof=1)) if count >= 2 else None
-    t_stat = (
+    diagnostic_iid_t_stat = (
         float(mean / (std / np.sqrt(count)))
         if mean is not None and std is not None and std > 0
         else None
@@ -104,7 +104,7 @@ def _summarize_ic_series(values: pd.Series) -> RankICResult:
         mean=mean,
         std=std,
         count=count,
-        t_stat=t_stat,
+        diagnostic_iid_t_stat=diagnostic_iid_t_stat,
         dates_total=int(len(numeric)),
     )
 

@@ -67,7 +67,7 @@ The market-data path, sector history, investable-universe implementation, dimens
 - Entry 001 load compares installed dependency versions with the immutable versions recorded in the frozen artifact. Freeze-time comparison to project pins and load-time comparison to the frozen record are separate operations.
 - Core dependency pins are parsed from `pyproject.toml` in a source tree or installed package metadata in a wheel; there is no second hardcoded production copy.
 - A zero or negative specification budget is rejected.
-- Rank-IC output labels its t-statistic as an unadjusted IID time-series standard error.
+- Rank-IC output names the numeric diagnostic `diagnostic_iid_t_stat` and labels its method as an unadjusted IID time-series standard error. The ambiguous `t_stat` field no longer exists.
 - ROIC calculates the effective tax rate from reported tax-expense and pretax-income components. The audit rejects `effective_tax_rate` supplied through the fact layer.
 
 ## Live API integration

@@ -57,6 +57,7 @@ class AuditReport:
     securities_checked: int
     fields_checked: tuple[str, ...]
     findings: tuple[AuditFinding, ...]
+    period_metadata_coverage: dict[str, object]
 
     @property
     def has_exclusions(self) -> bool:
@@ -71,6 +72,7 @@ class AuditReport:
             "securities_checked": self.securities_checked,
             "fields_checked": list(self.fields_checked),
             "has_exclusions": self.has_exclusions,
+            "period_metadata_coverage": self.period_metadata_coverage,
             "findings": [item.to_dict() for item in self.findings],
         }
 
@@ -91,6 +93,31 @@ def audit_facts(facts: Iterable[FactObservation]) -> AuditReport:
 
     rows = tuple(facts)
     findings: list[AuditFinding] = []
+
+    frequency_counts = Counter(row.reporting_frequency.value for row in rows)
+    period_type_counts = Counter(row.period_type.value for row in rows)
+    for name in ("annual", "quarterly", "unknown"):
+        frequency_counts.setdefault(name, 0)
+    for name in ("instant", "duration", "unknown"):
+        period_type_counts.setdefault(name, 0)
+    annual_rows = [
+        row for row in rows if row.reporting_frequency.value == "annual"
+    ]
+    fiscal_year_coverage = {
+        "with_fiscal_year": sum(row.fiscal_year is not None for row in rows),
+        "missing_fiscal_year": sum(row.fiscal_year is None for row in rows),
+        "annual_with_fiscal_year": sum(
+            row.fiscal_year is not None for row in annual_rows
+        ),
+        "annual_missing_fiscal_year": sum(
+            row.fiscal_year is None for row in annual_rows
+        ),
+    }
+    period_metadata_coverage: dict[str, object] = {
+        "reporting_frequency": dict(sorted(frequency_counts.items())),
+        "period_type": dict(sorted(period_type_counts.items())),
+        "fiscal_year": fiscal_year_coverage,
+    }
 
     impossible_dates = [
         row for row in rows
@@ -131,27 +158,73 @@ def audit_facts(facts: Iterable[FactObservation]) -> AuditReport:
             field=derived_rows[0].field,
         ))
 
-    identity = Counter(
-        (
+    observations_by_identity: dict[tuple[object, ...], list[FactObservation]] = (
+        defaultdict(list)
+    )
+    for row in rows:
+        core_identity = (
             row.security_id,
             row.field,
             row.period_end,
             row.available_at,
+            row.source,
             row.accession,
+            row.period_type,
+            row.reporting_frequency,
+            row.form_type,
+            row.fiscal_year,
+            row.fiscal_quarter,
         )
-        for row in rows
-    )
-    duplicate_count = sum(count - 1 for count in identity.values() if count > 1)
+        observations_by_identity[core_identity].append(row)
+
+    duplicate_count = 0
+    conflicting_identities: list[list[FactObservation]] = []
+    for observations in observations_by_identity.values():
+        value_units = {(row.value, row.unit) for row in observations}
+        if len(value_units) > 1:
+            conflicting_identities.append(observations)
+        elif len(observations) > 1:
+            duplicate_count += len(observations) - 1
     if duplicate_count:
         findings.append(AuditFinding(
             finding="Duplicate source observations were found.",
-            evidence=f"{duplicate_count} duplicate rows share the same security, field, period, availability timestamp, and accession.",
+            evidence=(
+                f"{duplicate_count} exactly repeated rows share the same core "
+                "source identity, value, and unit."
+            ),
             contamination_mechanism="Duplicates can overweight securities or create false revision histories.",
             affected_construct_or_test="Coverage statistics, feature calculations, and revision selection.",
             eligibility_decision=AuditDecision.ADMISSIBLE_RESTRICTED,
             sample_impact="Deduplicate by the full source identity before feature construction.",
             power_or_coverage_cost="No legitimate coverage loss when duplicates are exact.",
             no_workaround_statement="Exact identity deduplication is the only permitted correction; value-based aggregation is not valid.",
+        ))
+
+    if conflicting_identities:
+        example = conflicting_identities[0]
+        findings.append(AuditFinding(
+            finding="A core source identity is internally contradictory.",
+            evidence=(
+                f"{len(conflicting_identities)} core source identities contain "
+                "conflicting values and/or units; example "
+                f"{example[0].security_id}/{example[0].field} has "
+                f"{sorted({(row.value, row.unit or '') for row in example})}."
+            ),
+            contamination_mechanism=(
+                "One immutable source identity maps to incompatible numeric "
+                "observations, so its represented fact is indeterminate."
+            ),
+            affected_construct_or_test="Every feature using an affected source identity.",
+            eligibility_decision=AuditDecision.EXCLUDED,
+            sample_impact="Exclude affected source identities pending corrected source provenance.",
+            power_or_coverage_cost=(
+                f"Loss of {len(conflicting_identities)} contradictory source "
+                "identity groups."
+            ),
+            no_workaround_statement=(
+                "Value averaging, latest-row preference, and unit guessing are "
+                "not permitted repairs for contradictory source identity."
+            ),
         ))
 
     units_by_series: dict[tuple[str, str], set[str]] = defaultdict(set)
@@ -173,9 +246,18 @@ def audit_facts(facts: Iterable[FactObservation]) -> AuditReport:
         ))
 
     revisions_without_accession = 0
-    grouped: dict[tuple[str, str, date], list[FactObservation]] = defaultdict(list)
+    grouped: dict[tuple[object, ...], list[FactObservation]] = defaultdict(list)
     for row in rows:
-        grouped[(row.security_id, row.field, row.period_end)].append(row)
+        reporting_slot = (
+            row.security_id,
+            row.field,
+            row.period_end,
+            row.period_type,
+            row.reporting_frequency,
+            row.fiscal_year,
+            row.fiscal_quarter,
+        )
+        grouped[reporting_slot].append(row)
     for versions in grouped.values():
         if len(versions) > 1 and any(not row.accession for row in versions):
             revisions_without_accession += 1
@@ -196,4 +278,5 @@ def audit_facts(facts: Iterable[FactObservation]) -> AuditReport:
         securities_checked=len({row.security_id for row in rows}),
         fields_checked=tuple(sorted({row.field for row in rows})),
         findings=tuple(findings),
+        period_metadata_coverage=period_metadata_coverage,
     )

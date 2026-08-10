@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, datetime, timezone
-from typing import Iterable, Iterator, Sequence
+from typing import Callable, Iterable, Iterator, Sequence
 
 from .domain import FactObservation, RestatementPolicy
 
@@ -57,12 +57,34 @@ class PointInTimeStore:
         as_of: datetime,
         policy: RestatementPolicy = RestatementPolicy.FIRST_REPORTED,
     ) -> tuple[FactObservation, ...]:
+        eligible = self.eligible_versions_as_of(security_id, field, as_of)
+        return self._select_versions(eligible, policy)
+
+    def eligible_versions_as_of(
+        self,
+        security_id: str,
+        field: str,
+        as_of: datetime,
+    ) -> tuple[FactObservation, ...]:
+        """Return every source version known by ``as_of`` without collapsing it.
+
+        Governed calculation filters metadata on these raw eligible versions
+        before applying the restatement policy.  This prevents a newer
+        inadmissible quarterly row from hiding an older admissible annual row.
+        """
+
         cutoff = decision_cutoff(as_of)
-        eligible = [
+        return tuple(
             fact
             for fact in self._facts.get((security_id, field), ())
             if fact.available_at <= cutoff
-        ]
+        )
+
+    @staticmethod
+    def _select_versions(
+        eligible: Iterable[FactObservation],
+        policy: RestatementPolicy,
+    ) -> tuple[FactObservation, ...]:
         by_period: dict[date, list[FactObservation]] = defaultdict(list)
         for fact in eligible:
             by_period[fact.period_end].append(fact)
@@ -76,6 +98,23 @@ class PointInTimeStore:
                 else ordered[-1]
             )
         return tuple(sorted(selected, key=lambda item: item.period_end))
+
+    def filtered_history_as_of(
+        self,
+        security_id: str,
+        field: str,
+        as_of: datetime,
+        predicate: Callable[[FactObservation], bool],
+        policy: RestatementPolicy = RestatementPolicy.FIRST_REPORTED,
+    ) -> tuple[FactObservation, ...]:
+        """Filter raw PIT-eligible rows before selecting a version per period."""
+
+        eligible = (
+            fact
+            for fact in self.eligible_versions_as_of(security_id, field, as_of)
+            if predicate(fact)
+        )
+        return self._select_versions(eligible, policy)
 
     def latest_as_of(
         self,

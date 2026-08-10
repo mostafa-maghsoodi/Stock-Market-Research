@@ -43,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     entry1 = commands.add_parser("freeze-entry-001", help="freeze complete experiment config")
     entry1.add_argument("config_json")
     entry1.add_argument("output_json")
+    entry1.add_argument("--repository", required=True)
 
     verify = commands.add_parser("verify", help="verify a frozen artifact")
     verify.add_argument("artifact_json")
@@ -72,7 +73,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(freeze_entry_000(args.output_json, text))
     elif args.command == "freeze-entry-001":
         payload = json.loads(Path(args.config_json).read_text(encoding="utf-8"))
-        print(freeze_entry_001(args.output_json, payload))
+        print(freeze_entry_001(args.output_json, payload, repository=args.repository))
     elif args.command == "verify":
         print(verify_artifact(args.artifact_json))
     elif args.command == "check-entry-001":

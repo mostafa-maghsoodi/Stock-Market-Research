@@ -100,7 +100,7 @@ Fundamental data uses one row per source version:
 security_id,field,period_end,available_at,value,source,accession,unit
 ```
 
-`available_at` must be timezone-aware and must represent when that exact version became public. See `examples/facts.example.csv`.
+`available_at` must be timezone-aware and must represent when that exact version became public. Period type, reporting frequency, form type, fiscal year, and fiscal quarter are explicit source metadata; absent values remain `unknown`/null and are never inferred. See `examples/facts.example.csv`.
 
 ## Install and run
 
@@ -129,7 +129,7 @@ After the audit and every governance choice are complete, copy and resolve the E
 
 ```bash
 graham-research manifest --repository /path/to/clean/git/repository > research/manifests.json
-graham-research freeze-entry-001 research/entry001.config.json research/entry001.json
+graham-research freeze-entry-001 research/entry001.config.json research/entry001.json --repository /path/to/clean/git/repository
 graham-research verify research/entry001.json
 graham-research check-entry-001 research/entry001.json
 ```
@@ -161,12 +161,22 @@ from datetime import datetime
 
 from graham_research.domain import FactObservation
 from graham_research.features import FeatureEngine
+from graham_research.governance import load_resolved_entry_001
 from graham_research.pit import PointInTimeStore
 
 facts = [FactObservation.from_mapping(row) for row in vendor_rows]
 store = PointInTimeStore(facts)
 decision_at = datetime.fromisoformat("2025-03-31T20:00:00+00:00")
-features = FeatureEngine(store).calculate("SECURITY-123", decision_at)
+resolved = load_resolved_entry_001("research/entry001.json")
+engine = FeatureEngine(store, resolved)
+features = engine.calculate_governed_batch(
+    ["SECURITY-123"], decision_at, repository="/path/to/clean/repository"
+)
 ```
+
+Governed feature construction requires a verified Entry 001 v2 and a clean
+source tree. Unresolved specifications fail at the freeze gate and cannot reach
+ranking. Market-derived role alignment remains explicitly unresolved in Run 1;
+frequency exemption does not solve historical market-data timing.
 
 The next production step is a vendor-specific adapter that preserves the `FactObservation` contract. It should be written only after the data-source audit establishes which timestamps, revisions, delistings, and classifications are genuinely point-in-time.
