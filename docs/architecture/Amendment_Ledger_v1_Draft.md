@@ -16,7 +16,7 @@ The top-level object and every entry have exactly these keys:
 {
   "amendment_ledger_schema_version": 1,
   "ledger_version": positive integer,
-  "repository_id": string,
+  "repository_id": "mostafa-maghsoodi/Stock-Market-Research",
   "governing_architecture_identity": ArtifactIdentity,
   "entries": [AmendmentEntry, ...]
 }
@@ -36,11 +36,12 @@ AmendmentEntry = {
   "replacement_rule_exact_text": null | string,
   "replacement_rule_exact_text_sha256": null | 64-lowercase-hex,
   "effective_boundary": string,
+  "decision_subject_type": "ADR_RECORD",
   "decision_record_identity": ArtifactIdentity,
   "decision_approval_record_identity": ApprovalRecordIdentity
 }
 ApprovalRecordIdentity = {
-  "repository_id": string,
+  "repository_id": "mostafa-maghsoodi/Stock-Market-Research",
   "approval_record_path": normalized relative string,
   "approval_record_commit": 40-lowercase-hex full Git commit,
   "approval_record_git_blob": 40-lowercase-hex Git blob,
@@ -48,15 +49,34 @@ ApprovalRecordIdentity = {
 }
 ```
 
-No unknown/additional keys or arbitrary metadata maps are allowed. Entries are
-strictly ordered by contiguous `ordinal` beginning at 1; `amendment_id` is
-unique, and `(affected_rule_id, effective_boundary)` is unique. Exact
+No unknown/additional keys or arbitrary metadata maps are allowed. The canonical
+repository identity is exactly `mostafa-maghsoodi/Stock-Market-Research`; case
+and spelling are significant. Entries are strictly ordered by contiguous
+`ordinal` beginning at 1; `amendment_id` is unique, and
+`(affected_rule_id, effective_boundary)` is unique. Exact
 supersession requires non-null prior hash, replacement text, and matching
 replacement hash. Other classes require all three replacement/prior fields be
 null unless their approved decision itself supplies an exact replacement, in
 which case the class must be `EXACT_SUPERSESSION`.
 
-## 3. Versioning, supersession, and Entry000
+## 3. First ledger identity and entry set
+
+The first actual ledger path is exactly
+`docs/architecture/amendments/Amendment_Ledger_v1.0.0.json`. Its entries are
+exactly four `ADR_RECORD` subjects in this order: ADR-001, ADR-002, ADR-003, and
+ADR-004. Each is an independently addressable Markdown decision subject and
+requires its own distinct Approval Record; Architecture v3.2 approval cannot
+substitute for an ADR approval. Batch 1 Q1/Q2/Q3/Q5/Q8 is not an entry in this
+first ledger because Batch 1 Research Intent is its own Entry000
+current-authority component, not one of these four amendments.
+
+Each decision becomes eligible only in this order: decision subject bytes;
+subject commit and exact path/blob/SHA-256; decision Approval Record bytes;
+Approval Record commit; exact Approval Record identity; researcher explicit
+approval of that exact identity. Preliminary authorization to prepare a subject
+is not governing approval.
+
+## 4. Versioning, supersession, and Entry000
 
 An approved ledger is never edited. A change appends or supersedes through a
 new complete ledger version at a new immutable identity, followed by a new
@@ -70,14 +90,23 @@ ledger version, SHA-256/blob/source commit, ledger approval, and content-derived
 Entry000 `package_id`; an existing Entry000 cannot be updated in place. Mere
 inclusion does not approve the ledger.
 
-The only permitted construction order is: canonical ledger bytes; ledger
-SHA-256/blob/source commit; external human approval; separate Approval Record;
-then Entry000 binding of both identities and both sets of exact bytes. Entry
-approval references authorize the individual decisions recorded in the ledger;
-the ledger's own approval identity exists only in the external Approval Record
-and Entry000 approval-evidence closure. This ordering prevents a hash cycle.
+The only permitted ledger-approval order is: complete canonical ledger bytes;
+ledger source commit/path/blob/SHA-256; ledger Approval Record bytes; Approval
+Record commit; exact ledger Approval Record identity; researcher explicit
+approval of that exact identity; then Entry000 binding of both identities and
+both sets of exact bytes. The ledger becomes approved authority only at that
+external governing approval event. Its bytes MUST NOT contain the identity of
+the Approval Record approving those same bytes. Entry approval references
+authorize the individual decisions recorded in the ledger; the ledger's own
+approval identity exists only in the external Approval Record and Entry000
+approval-evidence closure. This ordering prevents a hash cycle.
 
-## 4. Verification and scope
+An approved ledger is never modified in place. A changed ledger requires a new
+version, new path, new bytes, new source commit/blob/SHA-256, a new ledger
+Approval Record, researcher approval of its exact identity, and a new Entry000
+package identity if the ledger becomes governing authority.
+
+## 5. Verification and scope
 
 Verification checks exact schemas, canonical ordering/uniqueness, hashes,
 decision-class invariants, approval identities, and Git path/blob/commit
