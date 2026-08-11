@@ -271,6 +271,10 @@ def test_register(path: str | Path) -> SpecificationRegister:
     )
 
 
+# This is a shared factory despite its historical name, not a pytest test case.
+test_register.__test__ = False
+
+
 def rewrite_register_events(
     register: SpecificationRegister,
     events: list[dict[str, object]],

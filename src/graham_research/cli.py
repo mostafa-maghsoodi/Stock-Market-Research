@@ -23,6 +23,8 @@ from .governance import (
 )
 from .identification import rule17
 from .ranked_artifact import inspect_ranking_manifest
+from .entry000 import verify_entry000_publication
+from .screen import deterministic_outcome_free_dry_run
 from .specification import SpecificationRegister
 
 
@@ -81,6 +83,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="verify and inspect a frozen governed-ranking manifest",
     )
     ranked.add_argument("manifest_json")
+
+    entry000_v2 = commands.add_parser(
+        "verify-entry-000-v2",
+        help="verify an Entry000 Package v2 publication and Git provenance",
+    )
+    entry000_v2.add_argument("artifact_json")
+    entry000_v2.add_argument("--repository", required=True)
+
+    commands.add_parser(
+        "screen-preflight-demo",
+        help="run the deterministic outcome-free governed-screen demonstration",
+    )
     return parser
 
 
@@ -142,6 +156,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(
             json.dumps(
                 inspect_ranking_manifest(args.manifest_json),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    elif args.command == "verify-entry-000-v2":
+        print(
+            json.dumps(
+                verify_entry000_publication(
+                    args.artifact_json,
+                    repository=args.repository,
+                ),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    elif args.command == "screen-preflight-demo":
+        print(
+            json.dumps(
+                deterministic_outcome_free_dry_run(),
                 indent=2,
                 sort_keys=True,
             )
