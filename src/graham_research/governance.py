@@ -400,10 +400,18 @@ def freeze_artifact(path: str | Path, payload: Mapping[str, Any]) -> str:
 
 def verify_artifact(path: str | Path) -> str:
     target = Path(path)
-    digest_path = target.with_suffix(target.suffix + ".sha256")
-    if not target.exists() or not digest_path.exists():
-        raise GovernanceError(f"artifact or digest is missing: {target}")
+    if not target.exists():
+        raise GovernanceError(f"artifact is missing: {target}")
     payload = json.loads(target.read_text(encoding="utf-8"))
+    if payload.get("entry") == "000" or "entry_000_package_schema_version" in payload:
+        # Import locally to keep the canonical JSON primitives reusable by the
+        # versioned Entry000 verifier without creating an import cycle.
+        from .entry000 import verify_entry000_dispatch
+
+        return verify_entry000_dispatch(target)
+    digest_path = target.with_suffix(target.suffix + ".sha256")
+    if not digest_path.exists():
+        raise GovernanceError(f"artifact digest is missing: {target}")
     actual = sha256_payload(payload)
     expected = digest_path.read_text(encoding="ascii").split()[0]
     if actual != expected:
