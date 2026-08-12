@@ -1122,7 +1122,7 @@ AUDIT_ITEM_NAMES = (
 
 def implementation_gap_audit() -> list[dict[str, Any]]:
     external = {8, 9, 10, 11, 15, 16, 17, 18, 21, 24, 28, 29, 30, 31, 32, 56, 57, 58, 59, 60}
-    incomplete = {33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 63}
+    incomplete = {33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
     output = []
     for number, name in enumerate(AUDIT_ITEM_NAMES, 1):
         if number in external:
