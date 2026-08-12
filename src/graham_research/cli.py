@@ -26,6 +26,7 @@ from .ranked_artifact import inspect_ranking_manifest
 from .entry000 import verify_entry000_publication
 from .screen import deterministic_outcome_free_dry_run
 from .specification import SpecificationRegister
+from .production import implementation_gap_audit, production_readiness_preflight
 
 
 def _load_facts_csv(path: str | Path) -> list[FactObservation]:
@@ -94,6 +95,16 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser(
         "screen-preflight-demo",
         help="run the deterministic outcome-free governed-screen demonstration",
+    )
+    production = commands.add_parser(
+        "production-readiness-v2",
+        help="run the outcome-free Screen v2 production-readiness gate",
+    )
+    production.add_argument("--repository", required=True)
+    production.add_argument("--evidence-manifest")
+    commands.add_parser(
+        "production-audit-v2",
+        help="print the complete 65-item Screen v2 implementation audit",
     )
     return parser
 
@@ -179,6 +190,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 sort_keys=True,
             )
         )
+    elif args.command == "production-readiness-v2":
+        print(
+            json.dumps(
+                production_readiness_preflight(
+                    args.repository,
+                    evidence_manifest_path=args.evidence_manifest,
+                ),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    elif args.command == "production-audit-v2":
+        print(json.dumps(implementation_gap_audit(), indent=2, sort_keys=True))
     return 0
 
 
