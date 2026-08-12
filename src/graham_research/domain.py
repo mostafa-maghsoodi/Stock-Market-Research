@@ -121,6 +121,11 @@ class FactObservation:
     fiscal_year: int | None = None
     fiscal_quarter: int | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict, compare=False)
+    period_start: date | None = None
+    provider: str | None = None
+    provider_product: str | None = None
+    native_observation_id: str | None = None
+    source_native_vintage_identifier: str | None = None
 
     def __post_init__(self) -> None:
         if not self.security_id.strip():
@@ -141,12 +146,28 @@ class FactObservation:
         )
         if self.fiscal_quarter is not None and self.fiscal_quarter not in {1, 2, 3, 4}:
             raise ValueError("fiscal_quarter must be 1, 2, 3, 4, or None")
+        if self.period_start is not None and self.period_start > self.period_end:
+            raise ValueError("period_start cannot be after period_end")
+        for name in (
+            "provider",
+            "provider_product",
+            "native_observation_id",
+            "source_native_vintage_identifier",
+        ):
+            value = getattr(self, name)
+            if value is not None and not value.strip():
+                raise ValueError(f"{name} cannot be blank")
         reserved = {
+            "period_start",
             "period_type",
             "reporting_frequency",
             "form_type",
             "fiscal_year",
             "fiscal_quarter",
+            "provider",
+            "provider_product",
+            "native_observation_id",
+            "source_native_vintage_identifier",
         }
         duplicate = sorted(reserved.intersection(self.metadata))
         if duplicate:
@@ -189,6 +210,27 @@ class FactObservation:
             form_type=form_type,
             fiscal_year=fiscal_year,
             fiscal_quarter=fiscal_quarter,
+            period_start=(
+                date.fromisoformat(str(row["period_start"]))
+                if row.get("period_start")
+                else None
+            ),
+            provider=(str(row["provider"]) if row.get("provider") else None),
+            provider_product=(
+                str(row["provider_product"])
+                if row.get("provider_product")
+                else None
+            ),
+            native_observation_id=(
+                str(row["native_observation_id"])
+                if row.get("native_observation_id")
+                else None
+            ),
+            source_native_vintage_identifier=(
+                str(row["source_native_vintage_identifier"])
+                if row.get("source_native_vintage_identifier")
+                else None
+            ),
         )
 
 
