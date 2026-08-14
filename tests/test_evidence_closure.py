@@ -12,7 +12,11 @@ from graham_research.closure import (
     ClosedFinancingComponents,
     ComponentEvidenceState,
     FINAL_DECISION_STATUS,
+    FIRST_RUN_EVIDENCE_WINDOW,
     FinancingComponentValue,
+    INITIAL_VALIDATION_RANGE_RULE,
+    RD002A_ORIGINAL_MEANING,
+    SCREEN_V2_APPROVAL_RECORD_IDENTITY,
     SecClassSharesEvidence,
     SpacCombinationEvidence,
     ZeroGapSessionPolicy,
@@ -20,6 +24,7 @@ from graham_research.closure import (
     classify_operating_company,
     closed_enterprise_value,
     closed_invested_capital,
+    derive_crosswalk_evidence_identity,
     derive_internal_listing_identity,
     normalize_databento_price,
     normalize_sec_value,
@@ -37,6 +42,7 @@ from graham_research.evidence import (
     revalidate_collected_evidence,
 )
 from graham_research.production import EvidenceIdentity, ProductionContractError
+from graham_research.ranked_artifact import RANKED_FRAME_DIGEST_SCOPE
 from graham_research.topology import (
     CrosswalkResolution,
     OfficialSessionRecord,
@@ -92,6 +98,7 @@ def crosswalk() -> CrosswalkResolution:
         "RD-CROSSWALK-001_REQUIRED",
         datetime(2025, 1, 1, tzinfo=UTC), datetime(2026, 1, 1, tzinfo=UTC),
         datetime(2025, 1, 1, tzinfo=UTC), datetime(2026, 1, 1, tzinfo=UTC),
+        datetime(2020, 1, 2, 14, 30, tzinfo=UTC),
     )
 
 
@@ -228,19 +235,125 @@ def test_spac_boundary_requires_sec_completion_then_next_session() -> None:
         resolve_spac_post_combination_boundary(evidence, [], exchange="XNAS")
 
 
-def test_crosswalk_identity_is_reproducible_and_ticker_is_not_sole_material() -> None:
+def test_rd002a_keeps_validation_range_and_derived_window_is_not_an_rd() -> None:
+    assert RD002A_ORIGINAL_MEANING == "INITIAL_PRODUCTION_VALIDATION_RANGE"
+    assert "VALIDATION" in INITIAL_VALIDATION_RANGE_RULE
+    assert "126" not in INITIAL_VALIDATION_RANGE_RULE
+    assert FIRST_RUN_EVIDENCE_WINDOW.completed_sessions == 126
+    assert FIRST_RUN_EVIDENCE_WINDOW.decision_date == date(2025, 6, 30)
+    assert not FIRST_RUN_EVIDENCE_WINDOW.derived_from.startswith("RD-")
+
+
+def test_screen_v2_approval_identity_is_exact_and_not_evidence_placeholder() -> None:
+    assert SCREEN_V2_APPROVAL_RECORD_IDENTITY == {
+        "repository_id": "mostafa-maghsoodi/Stock-Market-Research",
+        "approval_record_path": "docs/approvals/v1/screen-specification-v2-approval-001.json",
+        "approval_record_commit": "2363b96b490e805ed5d50392fa476100ffdbbcf3",
+        "approval_record_git_blob": "67f6db0005179a88152df7817065c8b2c4251595",
+        "approval_record_exact_byte_sha256": "b9bc27f57a386ae635ba67dac210f33f1db67258589bfc6e88005de0babe3570",
+    }
+    assert "TO_BE_BOUND" not in repr(SCREEN_V2_APPROVAL_RECORD_IDENTITY)
+
+
+def test_stable_ids_exclude_run_and_evidence_provenance() -> None:
     sec_cik = identity()
     first = derive_internal_listing_identity(crosswalk(), sec_cik_evidence_identity=sec_cik)
     second = derive_internal_listing_identity(crosswalk(), sec_cik_evidence_identity=sec_cik)
     assert first == second
     assert len(first.issuer_id) == len(first.security_id) == len(first.listing_id) == 64
-    changed = replace(crosswalk(), databento_instrument_id=102)
+
+    later = replace(crosswalk(), decision_at=datetime(2025, 7, 31, 20, tzinfo=UTC))
+    reacquired = replace(
+        sec_cik, acquired_at_utc=datetime(2025, 8, 1, tzinfo=UTC)
+    )
+    changed_observation = replace(
+        later,
+        databento_instrument_id=102,
+        massive_evidence_identity=replace(
+            later.massive_evidence_identity,
+            acquired_at_utc=datetime(2025, 8, 2, tzinfo=UTC),
+        ),
+    )
     assert derive_internal_listing_identity(
-        changed, sec_cik_evidence_identity=sec_cik
-    ).listing_id != first.listing_id
+        later, sec_cik_evidence_identity=reacquired
+    ) == first
     assert derive_internal_listing_identity(
-        changed, sec_cik_evidence_identity=sec_cik
-    ).security_id == first.security_id
+        changed_observation, sec_cik_evidence_identity=reacquired
+    ) == first
+
+
+def test_crosswalk_evidence_changes_without_changing_stable_security() -> None:
+    sec_cik = identity()
+    resolution = crosswalk()
+    stable = derive_internal_listing_identity(
+        resolution, sec_cik_evidence_identity=sec_cik
+    )
+    first_evidence = derive_crosswalk_evidence_identity(
+        resolution, stable, sec_cik_evidence_identity=sec_cik
+    )
+    changed_resolution = replace(
+        resolution,
+        definition_evidence_identity=identity("DATABENTO", "XNAS.ITCH", "9"),
+    )
+    changed_stable = derive_internal_listing_identity(
+        changed_resolution, sec_cik_evidence_identity=sec_cik
+    )
+    changed_evidence = derive_crosswalk_evidence_identity(
+        changed_resolution, changed_stable, sec_cik_evidence_identity=sec_cik
+    )
+    assert changed_stable.security_id == stable.security_id
+    assert changed_stable.listing_id == stable.listing_id
+    assert changed_evidence.crosswalk_evidence_sha256 != first_evidence.crosswalk_evidence_sha256
+    with pytest.raises(ProductionContractError, match="STABLE_IDENTITY_MISMATCH"):
+        derive_crosswalk_evidence_identity(
+            changed_resolution, replace(stable, security_id="0" * 64),
+            sec_cik_evidence_identity=sec_cik,
+        )
+
+
+def test_identity_successors_and_exchange_transfer_create_expected_boundaries() -> None:
+    sec_cik = identity()
+    original = derive_internal_listing_identity(
+        crosswalk(), sec_cik_evidence_identity=sec_cik
+    )
+    transfer = replace(
+        crosswalk(), primary_exchange="XNYS", databento_dataset="XNYS.PILLAR",
+        listing_lifecycle_start=datetime(2025, 7, 1, 13, 30, tzinfo=UTC),
+    )
+    transferred = derive_internal_listing_identity(
+        transfer, sec_cik_evidence_identity=sec_cik
+    )
+    assert transferred.issuer_id == original.issuer_id
+    assert transferred.security_id == original.security_id
+    assert transferred.listing_id != original.listing_id
+
+    successor = replace(
+        crosswalk(), cik="0000000002", share_class_figi="BBG-SUCCESSOR",
+        listing_lifecycle_start=datetime(2025, 8, 1, 13, 30, tzinfo=UTC),
+    )
+    successor_identity = derive_internal_listing_identity(
+        successor, sec_cik_evidence_identity=sec_cik
+    )
+    assert successor_identity.issuer_id != original.issuer_id
+    assert successor_identity.security_id != original.security_id
+
+
+def test_ticker_only_stable_identity_is_impossible() -> None:
+    with pytest.raises(ProductionContractError, match="NORMALIZED_SEC_CIK"):
+        derive_internal_listing_identity(
+            replace(crosswalk(), cik=""), sec_cik_evidence_identity=identity()
+        )
+    with pytest.raises(ProductionContractError, match="SHARE_CLASS_FIGI"):
+        derive_internal_listing_identity(
+            replace(crosswalk(), share_class_figi=""),
+            sec_cik_evidence_identity=identity(),
+        )
+
+
+def test_protected_ranking_digest_remains_exact() -> None:
+    assert RANKED_FRAME_DIGEST_SCOPE == (
+        "security_id", "decision_date", "composite_score"
+    )
 
 
 def test_first_run_rejects_non_usd_accounting_and_normalizes_native_price() -> None:
@@ -252,10 +365,11 @@ def test_first_run_rejects_non_usd_accounting_and_normalizes_native_price() -> N
 
 def test_all_policy_decisions_are_closed_except_exact_evidence() -> None:
     assert FINAL_DECISION_STATUS["RD-001"].value == "NEEDS_EXACT_PROVIDER_EVIDENCE"
+    assert FINAL_DECISION_STATUS["RD-002C"].value == "NO_LONGER_REQUIRED"
     assert all(
         state.value == "READY_TO_ADOPT"
         for decision, state in FINAL_DECISION_STATUS.items()
-        if decision != "RD-001"
+        if decision not in {"RD-001", "RD-002C"}
     )
 
 

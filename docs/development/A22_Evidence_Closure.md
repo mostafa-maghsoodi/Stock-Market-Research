@@ -33,6 +33,32 @@ Only official sources were used:
 
 No additional provider was selected or investigated.
 
+## Original RD semantic audit
+
+Repository history and the pre-closure `RESEARCHER_DECISIONS` registry establish
+the meanings below. “Same” permits a narrower technical implementation without
+changing the decision's subject.
+
+| ID | Original meaning | A22 closure meaning | Result | Repair |
+|---|---|---|---|---|
+| RD-001 | production provider/product topology | exact first-run topology | same | none |
+| RD-002A | initial production-validation range | 126-session seasoning window | drifted | restored validation-range meaning |
+| RD-002B | first governed decision date | 2025-06-30 candidate | same | none |
+| RD-002C | full intended historical range | deferred for first single-date run | same | explicit `NO_LONGER_REQUIRED` for first run |
+| RD-004 | native/canonical mappings and field catalog | SEC availability plus exact mapping contract | same/narrowed | none |
+| RD-008 | production historical market-data product | Databento close/volume contract | same/narrowed | none |
+| RD-013 | missing-session/stale-price bound | strict zero-gap completed-session rule | same/narrowed | none |
+| RD-014 | corporate-action continuity/effective events | exact action/SPAC contract | same/narrowed | none |
+| RD-015 | PIT shares construction | SEC filing-level class shares | same/narrowed | none |
+| RD-016 | total market-cap construction | complete class-summed construction | same/narrowed | none |
+| RD-017 | enterprise-value construction | exact component EV | same/narrowed | none |
+| RD-018 | historical operating-company taxonomy | positive-evidence classification | same/narrowed | none |
+| RD-019 | invested-capital construction | exact component construction | same/narrowed | none |
+| RD-020 | denominator-specific near-zero materiality | exact per-denominator thresholds | same/narrowed | none |
+| RD-021 | unit/currency normalization | USD/shares/USD-per-share contract | same/narrowed | none |
+| RD-022 | CandidateSet evidence identity contract | existing contract preserved | same | none |
+| RD-CROSSWALK-001 | unique Massive/Databento crosswalk with stable internal IDs | run/evidence bytes embedded in IDs | drifted from stable-ID architecture | stable IDs separated from provenance |
+
 ## RD-004A — SEC availability
 
 Proposed value: `READY_TO_ADOPT`.
@@ -248,22 +274,32 @@ Proposed value: `READY_TO_ADOPT`.
 
 Proposed value: `READY_TO_ADOPT`.
 
-The existing one-and-only-one match remains mandatory. Internal identifiers use
+The existing one-and-only-one match remains mandatory. Stable internal identity
+and run-specific evidence provenance are separate. Stable identifiers use
 repository canonical JSON and lowercase SHA-256:
 
 ```text
-issuer_id = SHA256({identity_type, CIK, SEC CIK evidence SHA-256,
-                    Massive evidence SHA-256})
-security_id = SHA256({identity_type, issuer_id, share-class FIGI,
-                      Massive evidence SHA-256})
-listing_id = SHA256({identity_type, security_id, primary MIC,
-                     Databento dataset, instrument_id, publisher_id, decision_at,
-                     exact symbology and definition effective intervals,
-                     symbology evidence SHA-256, definition evidence SHA-256})
+issuer_id = SHA256({identity_schema=STABLE_ISSUER_ID_V1,
+                    issuer_namespace=SEC_CIK, normalized CIK})
+security_id = SHA256({identity_schema=STABLE_SECURITY_ID_V1, issuer_id,
+                      share_class_namespace=OPENFIGI_SHARE_CLASS,
+                      share-class FIGI})
+listing_id = SHA256({identity_schema=STABLE_LISTING_ID_V1, security_id,
+                     primary MIC, continuous listing lifecycle start})
 ```
 
+Decision/acquisition timestamps, raw evidence hashes, manifest/run identity,
+observed ticker, provider-native instrument/publisher, and row-level effective
+intervals are forbidden stable-ID inputs. They are bound instead by a separate
+`CrosswalkEvidenceIdentity`, which also binds the stable IDs, decision time,
+exact SEC/Massive/Databento evidence identities, match count, and
+canonicalization version. It may legitimately change between runs.
+
 Ticker is match evidence for a dated interval but is not sole identity material.
-Missing CIK/FIGI/interval/evidence, zero matches, or multiple matches fails.
+Missing CIK/FIGI/lifecycle boundary/interval/evidence, zero matches, or multiple
+matches fails. A true CIK successor, share-class FIGI successor, exchange
+transfer, or separately proved new listing lifecycle creates the corresponding
+new stable identity.
 
 ## RD-016, RD-020, and RD-022
 
@@ -284,9 +320,16 @@ lookbacks, SEC has the required annual filing depth, and researcher-supplied
 observations report historical Massive/Databento access. Exact evidence bytes
 and per-security completeness are still required.
 
-RD-002A is the exact 126 completed primary-market sessions immediately
-preceding and including the 2025-06-30 decision session. The calendar-derived
-start date is evidence, not a further policy choice.
+RD-002A retains its original meaning: the inclusive initial production-validation
+range recorded by `ProviderSampleAdmissionPack.validation_start` and
+`validation_end` through the existing non-production freeze mechanism. It is
+not the seasoning window.
+
+The 126 completed-session first-run evidence window is a non-authority
+`CompletedSessionLookback` derived from the decision date, official completed
+session calendar, and the already-governed Screen v2 seasoning requirement.
+It does not receive or reuse an RD identifier. Its calendar-derived start date
+is evidence, not a policy choice.
 
 ## Local evidence collection
 
@@ -314,7 +357,10 @@ The checked-in request template is `NON_EVIDENCE_REQUEST_TEMPLATE` only.
 `CandidateProductionEvidenceManifest` binds SEC, Massive, Databento, official
 session, field-catalog, crosswalk, configuration, and implementation identities.
 Its only accepted status is `NOT_PRODUCTION_ADMITTED`, and it always emits that
-blocker. No candidate instance with fake evidence is checked in.
+blocker. Its crosswalk field binds the separately materialized
+`CrosswalkEvidenceIdentity`; the manifest does not mint or redefine stable
+issuer/security/listing IDs. No candidate instance with fake evidence is checked
+in.
 
 ## Final decision status
 
@@ -323,6 +369,7 @@ blocker. No candidate instance with fake evidence is checked in.
 | RD-001 | `NEEDS_EXACT_PROVIDER_EVIDENCE` |
 | RD-002A | `READY_TO_ADOPT` |
 | RD-002B | `READY_TO_ADOPT` |
+| RD-002C | `NO_LONGER_REQUIRED` for the first single-date run |
 | RD-004 | `READY_TO_ADOPT` |
 | RD-008 | `READY_TO_ADOPT` |
 | RD-013 | `READY_TO_ADOPT` |
@@ -337,15 +384,22 @@ blocker. No candidate instance with fake evidence is checked in.
 | RD-022 | `READY_TO_ADOPT` |
 | RD-CROSSWALK-001 | `READY_TO_ADOPT` |
 
-RD-002C remains unnecessary for the first single-date run.
+RD-002C remains `NO_LONGER_REQUIRED` for the first single-date run and is still
+required before later multi-date historical research.
 
-## Final production decision declaration — proposed, not adopted
+## FINAL PRODUCTION DECISION DECLARATION — PROPOSED, NOT YET ADOPTED
 
 The eventual one-shot declaration must adopt exactly the policies above and
 bind these identities without guessing:
 
 ```text
-SCREEN_V2_APPROVAL_RECORD_IDENTITY = <TO_BE_BOUND_FROM_ADMITTED_EVIDENCE>
+SCREEN_V2_APPROVAL_RECORD_IDENTITY = {
+  repository_id: mostafa-maghsoodi/Stock-Market-Research,
+  approval_record_path: docs/approvals/v1/screen-specification-v2-approval-001.json,
+  approval_record_commit: 2363b96b490e805ed5d50392fa476100ffdbbcf3,
+  approval_record_git_blob: 67f6db0005179a88152df7817065c8b2c4251595,
+  approval_record_exact_byte_sha256: b9bc27f57a386ae635ba67dac210f33f1db67258589bfc6e88005de0babe3570
+}
 SEC_EDGAR_PRODUCT_AND_EVIDENCE_IDENTITIES = <TO_BE_BOUND_FROM_ADMITTED_EVIDENCE>
 MASSIVE_PRODUCT_ENTITLEMENT_AND_EVIDENCE_IDENTITIES = <TO_BE_BOUND_FROM_ADMITTED_EVIDENCE>
 DATABENTO_DATASET_ENTITLEMENT_AND_EVIDENCE_IDENTITIES = <TO_BE_BOUND_FROM_ADMITTED_EVIDENCE>
@@ -353,14 +407,19 @@ OFFICIAL_SESSION_EVIDENCE_IDENTITIES = <TO_BE_BOUND_FROM_ADMITTED_EVIDENCE>
 FIELD_CATALOG_IDENTITY = <TO_BE_BOUND_FROM_ADMITTED_EVIDENCE>
 CROSSWALK_EVIDENCE_IDENTITY = <TO_BE_BOUND_FROM_ADMITTED_EVIDENCE>
 PRODUCTION_EVIDENCE_MANIFEST_IDENTITY = <TO_BE_BOUND_FROM_ADMITTED_EVIDENCE>
-IMPLEMENTATION_COMMIT = <TO_BE_BOUND_FROM_ADMITTED_EVIDENCE>
+POST_MERGE_IMPLEMENTATION_COMMIT = <TO_BE_BOUND_AFTER_NORMAL_PR19_MERGE>
+POST_MERGE_IMPLEMENTATION_TREE = <TO_BE_BOUND_AFTER_NORMAL_PR19_MERGE>
 
 RD-001 = SEC EDGAR filing archive + Massive Stocks Reference + Databento
          XNAS.ITCH/XNYS.PILLAR/XASE.PILLAR + official NYSE/Nasdaq calendars;
          Sharadar is optional diagnostics only
-RD-002A = exact 126 completed primary-market sessions immediately preceding
-          and including the 2025-06-30 decision session
+RD-002A = initial production-validation range: inclusive UTC validation_start
+          and validation_end recorded by the existing non-production freeze;
+          exact dates remain researcher-supplied and are not adopted here
 RD-002B = 2025-06-30
+FIRST_RUN_EVIDENCE_WINDOW = non-authority CompletedSessionLookback of 126
+                            completed sessions derived from RD-002B, the official
+                            calendar, and governed Screen v2 seasoning
 RD-004A = EDGAR acceptance datetime is the governed availability timestamp
 RD-004B = closed exact SEC mapping contract in this document
 RD-008 = exact type-11 primary close and session-bounded native trade sum
@@ -374,7 +433,8 @@ RD-019 = component invested capital and governed two-period average
 RD-020 = exact denominator thresholds in this document; exclude_feature
 RD-021 = USD/SHARES/USD_PER_SHARE; non-USD accounting unavailable
 RD-022 = existing CandidateSet identity contract unchanged
-RD-CROSSWALK-001 = canonical JSON/SHA-256 identity scheme in this document
+RD-CROSSWALK-001 = stable CIK/FIGI/MIC/listing-lifecycle identities separated
+                   from the date/evidence-bound CrosswalkEvidenceIdentity
 
 I attest that no realized strategy outcome was examined in making these decisions.
 ```

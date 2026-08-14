@@ -173,6 +173,20 @@ def test_crosswalk_requires_one_unique_date_venue_symbology_definition_match() -
     result = crosswalk()
     assert result.databento_instrument_id == 101
     assert result.identity_authority_status == "RD-CROSSWALK-001_REQUIRED"
+    assert result.listing_lifecycle_start == datetime(2025, 1, 1, tzinfo=UTC)
+
+
+def test_contiguous_definition_refresh_preserves_listing_lifecycle_start() -> None:
+    boundary = datetime(2025, 1, 1, tzinfo=UTC)
+    earlier = definition(
+        effective_start=datetime(2024, 1, 2, 14, 30, tzinfo=UTC),
+        effective_end=boundary,
+    )
+    current = definition(effective_start=boundary)
+    result = resolve_massive_databento_crosswalk(
+        massive(), [mapping()], [earlier, current], decision_at=DECISION
+    )
+    assert result.listing_lifecycle_start == earlier.effective_start
 
 
 def test_crosswalk_missing_and_ambiguous_fail_closed() -> None:

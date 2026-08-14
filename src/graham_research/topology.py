@@ -430,6 +430,43 @@ class CrosswalkResolution:
     symbology_effective_end: datetime | None = None
     definition_effective_start: datetime | None = None
     definition_effective_end: datetime | None = None
+    # The start of the continuous economic listing lifecycle, not merely the
+    # start of the particular definition row observed for this run.  It is
+    # stable identity material; the row-level effective intervals above are
+    # provenance material.
+    listing_lifecycle_start: datetime | None = None
+
+
+def _continuous_listing_lifecycle_start(
+    matched: DatabentoDefinitionRecord,
+    definitions: Sequence[DatabentoDefinitionRecord],
+) -> datetime:
+    """Return the start of the contiguous definition chain containing *matched*.
+
+    A metadata refresh inside one continuous listing must not mint a new
+    listing identity.  A true gap, venue transfer, publisher change, dataset
+    change, or native-instrument change starts a separate lifecycle.
+    """
+
+    same_listing = sorted(
+        (
+            item for item in definitions
+            if item.dataset == matched.dataset
+            and item.publisher_id == matched.publisher_id
+            and item.instrument_id == matched.instrument_id
+            and item.exchange == matched.exchange
+        ),
+        key=lambda item: (item.effective_start, item.effective_end),
+    )
+    start = matched.effective_start
+    changed = True
+    while changed:
+        changed = False
+        for item in same_listing:
+            if item.effective_start < start <= item.effective_end:
+                start = item.effective_start
+                changed = True
+    return start
 
 
 def resolve_massive_databento_crosswalk(
@@ -471,6 +508,9 @@ def resolve_massive_databento_crosswalk(
     if len(matches) != 1:
         raise ProductionContractError("CROSSWALK_AMBIGUOUS")
     matched_mapping, definition = matches[0]
+    listing_lifecycle_start = _continuous_listing_lifecycle_start(
+        definition, definitions
+    )
     return CrosswalkResolution(
         decision_at=decision_at,
         cik=massive.cik,
@@ -488,6 +528,7 @@ def resolve_massive_databento_crosswalk(
         symbology_effective_end=matched_mapping.end_at,
         definition_effective_start=definition.effective_start,
         definition_effective_end=definition.effective_end,
+        listing_lifecycle_start=listing_lifecycle_start,
     )
 
 

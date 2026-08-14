@@ -12,10 +12,14 @@ from datetime import date, datetime
 from enum import Enum
 import hashlib
 import math
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, cast
 
 from .governance import canonical_json
-from .production import EvidenceIdentity, ProductionContractError
+from .production import (
+    EvidenceIdentity,
+    ProductionContractError,
+    SCREEN_V2_CONFIG,
+)
 from .topology import (
     CrosswalkResolution,
     MassiveSnapshotRecord,
@@ -27,8 +31,41 @@ from .topology import (
 
 FIRST_RUN_DECISION_DATE = date(2025, 6, 30)
 INITIAL_VALIDATION_RANGE_RULE = (
-    "EXACT_126_COMPLETED_PRIMARY_MARKET_SESSIONS_IMMEDIATELY_PRECEDING_"
-    "AND_INCLUDING_THE_2025_06_30_DECISION_SESSION"
+    "INCLUSIVE_UTC_START_AND_END_DATES_RECORDED_BY_THE_EXISTING_"
+    "NON_PRODUCTION_SAMPLE_VALIDATION_FREEZE"
+)
+RD002A_ORIGINAL_MEANING = "INITIAL_PRODUCTION_VALIDATION_RANGE"
+
+SCREEN_V2_APPROVAL_RECORD_IDENTITY: Mapping[str, str] = {
+    "repository_id": "mostafa-maghsoodi/Stock-Market-Research",
+    "approval_record_path": (
+        "docs/approvals/v1/screen-specification-v2-approval-001.json"
+    ),
+    "approval_record_commit": "2363b96b490e805ed5d50392fa476100ffdbbcf3",
+    "approval_record_git_blob": "67f6db0005179a88152df7817065c8b2c4251595",
+    "approval_record_exact_byte_sha256": (
+        "b9bc27f57a386ae635ba67dac210f33f1db67258589bfc6e88005de0babe3570"
+    ),
+}
+
+
+@dataclass(frozen=True)
+class CompletedSessionLookback:
+    """Derived execution window; this is not an RD authority decision."""
+
+    decision_date: date
+    completed_sessions: int
+    include_decision_session: bool
+    derived_from: str
+
+
+FIRST_RUN_EVIDENCE_WINDOW = CompletedSessionLookback(
+    decision_date=FIRST_RUN_DECISION_DATE,
+    completed_sessions=cast(
+        int, SCREEN_V2_CONFIG["minimum_seasoning_completed_sessions"]
+    ),
+    include_decision_session=True,
+    derived_from="SCREEN_V2_CONFIG.minimum_seasoning_completed_sessions",
 )
 
 
@@ -496,8 +533,51 @@ class InternalListingIdentity:
     issuer_id: str
     security_id: str
     listing_id: str
+    identity_schema_version: int = 2
     canonicalization: str = "RFC8785_EQUIVALENT_REPOSITORY_CANONICAL_JSON"
     digest_algorithm: str = "SHA-256"
+
+
+@dataclass(frozen=True)
+class CrosswalkEvidenceIdentity:
+    """Run-specific evidence/provenance for one unique crosswalk resolution."""
+
+    crosswalk_evidence_sha256: str
+    decision_at: datetime
+    issuer_id: str
+    security_id: str
+    listing_id: str
+    match_count: int = 1
+    canonicalization_version: int = 1
+    canonicalization: str = "RFC8785_EQUIVALENT_REPOSITORY_CANONICAL_JSON"
+    digest_algorithm: str = "SHA-256"
+
+    def __post_init__(self) -> None:
+        if (
+            len(self.crosswalk_evidence_sha256) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in self.crosswalk_evidence_sha256
+            )
+        ):
+            raise ProductionContractError("CROSSWALK_EVIDENCE_SHA256_INVALID")
+        if self.decision_at.tzinfo is None:
+            raise ProductionContractError("CROSSWALK_EVIDENCE_DECISION_TIME_NAIVE")
+        if self.match_count != 1:
+            raise ProductionContractError("CROSSWALK_MATCH_COUNT_NOT_ONE")
+
+
+def _require_stable_resolution_material(resolution: CrosswalkResolution) -> datetime:
+    if len(resolution.cik) != 10 or not resolution.cik.isdigit():
+        raise ProductionContractError("STABLE_ISSUER_REQUIRES_NORMALIZED_SEC_CIK")
+    if not resolution.share_class_figi.strip():
+        raise ProductionContractError("STABLE_SECURITY_REQUIRES_SHARE_CLASS_FIGI")
+    if not resolution.primary_exchange.strip():
+        raise ProductionContractError("STABLE_LISTING_REQUIRES_PRIMARY_MIC")
+    lifecycle_start = resolution.listing_lifecycle_start
+    if lifecycle_start is None or lifecycle_start.tzinfo is None:
+        raise ProductionContractError("STABLE_LISTING_LIFECYCLE_START_MISSING")
+    return lifecycle_start
 
 
 def derive_internal_listing_identity(
@@ -505,6 +585,14 @@ def derive_internal_listing_identity(
     *,
     sec_cik_evidence_identity: EvidenceIdentity,
 ) -> InternalListingIdentity:
+    """Derive stable issuer/security/listing IDs, excluding run provenance.
+
+    Evidence proves the asserted identifiers but is intentionally absent from
+    the stable hash material.  Decision dates, acquisition timestamps, raw
+    evidence hashes, observed ticker, and row-level effective intervals belong
+    to :func:`derive_crosswalk_evidence_identity` instead.
+    """
+
     intervals = (
         resolution.symbology_effective_start, resolution.symbology_effective_end,
         resolution.definition_effective_start, resolution.definition_effective_end,
@@ -519,40 +607,100 @@ def derive_internal_listing_identity(
     assert definition_start is not None and definition_end is not None
     if sec_cik_evidence_identity.provider != "SEC_EDGAR":
         raise ProductionContractError("issuer identity requires SEC CIK evidence")
+    lifecycle_start = _require_stable_resolution_material(resolution)
     issuer_material = {
-        "identity_type": "ISSUER", "cik": resolution.cik,
-        "massive_evidence_sha256": resolution.massive_evidence_identity.content_sha256,
-        "sec_cik_evidence_sha256": sec_cik_evidence_identity.content_sha256,
+        "identity_schema": "STABLE_ISSUER_ID_V1",
+        "issuer_namespace": "SEC_CIK",
+        "cik": resolution.cik,
     }
     issuer_id = hashlib.sha256(canonical_json(issuer_material)).hexdigest()
     security_material = {
-        "identity_type": "SECURITY", "issuer_id": issuer_id,
+        "identity_schema": "STABLE_SECURITY_ID_V1",
+        "issuer_id": issuer_id,
+        "share_class_namespace": "OPENFIGI_SHARE_CLASS",
         "share_class_figi": resolution.share_class_figi,
-        "massive_evidence_sha256": resolution.massive_evidence_identity.content_sha256,
     }
     security_id = hashlib.sha256(canonical_json(security_material)).hexdigest()
     listing_material = {
-        "identity_type": "LISTING", "security_id": security_id,
+        "identity_schema": "STABLE_LISTING_ID_V1",
+        "security_id": security_id,
         "primary_mic": resolution.primary_exchange,
+        "listing_lifecycle_start": lifecycle_start.isoformat(),
+    }
+    listing_id = hashlib.sha256(canonical_json(listing_material)).hexdigest()
+    return InternalListingIdentity(issuer_id, security_id, listing_id)
+
+
+def derive_crosswalk_evidence_identity(
+    resolution: CrosswalkResolution,
+    stable_identity: InternalListingIdentity,
+    *,
+    sec_cik_evidence_identity: EvidenceIdentity,
+) -> CrosswalkEvidenceIdentity:
+    """Bind the exact date-effective evidence used for one crosswalk result."""
+
+    lifecycle_start = _require_stable_resolution_material(resolution)
+    intervals = (
+        resolution.symbology_effective_start, resolution.symbology_effective_end,
+        resolution.definition_effective_start, resolution.definition_effective_end,
+    )
+    if any(value is None for value in intervals):
+        raise ProductionContractError("CROSSWALK_EFFECTIVE_INTERVALS_MISSING")
+    if sec_cik_evidence_identity.provider != "SEC_EDGAR":
+        raise ProductionContractError("crosswalk evidence requires SEC CIK evidence")
+    expected_stable = derive_internal_listing_identity(
+        resolution, sec_cik_evidence_identity=sec_cik_evidence_identity
+    )
+    if stable_identity != expected_stable:
+        raise ProductionContractError("CROSSWALK_STABLE_IDENTITY_MISMATCH")
+    symbology_start = resolution.symbology_effective_start
+    symbology_end = resolution.symbology_effective_end
+    definition_start = resolution.definition_effective_start
+    definition_end = resolution.definition_effective_end
+    assert symbology_start is not None and symbology_end is not None
+    assert definition_start is not None and definition_end is not None
+    material = {
+        "identity_schema": "CROSSWALK_EVIDENCE_IDENTITY_V1",
+        "decision_at": resolution.decision_at.isoformat(),
+        "cik": resolution.cik,
+        "share_class_figi": resolution.share_class_figi,
+        "primary_mic": resolution.primary_exchange,
+        "ticker_as_observed": resolution.massive_ticker,
         "databento_dataset": resolution.databento_dataset,
+        "databento_raw_symbol": resolution.databento_raw_symbol,
         "databento_instrument_id": resolution.databento_instrument_id,
         "databento_publisher_id": resolution.databento_publisher_id,
-        "decision_at": resolution.decision_at.isoformat(),
         "symbology_effective_start": symbology_start.isoformat(),
         "symbology_effective_end": symbology_end.isoformat(),
         "definition_effective_start": definition_start.isoformat(),
         "definition_effective_end": definition_end.isoformat(),
+        "listing_lifecycle_start": lifecycle_start.isoformat(),
+        "massive_evidence_id": resolution.massive_evidence_identity.evidence_id,
+        "massive_evidence_sha256": resolution.massive_evidence_identity.content_sha256,
+        "sec_cik_evidence_id": sec_cik_evidence_identity.evidence_id,
+        "sec_cik_evidence_sha256": sec_cik_evidence_identity.content_sha256,
+        "symbology_evidence_id": resolution.symbology_evidence_identity.evidence_id,
         "symbology_evidence_sha256": resolution.symbology_evidence_identity.content_sha256,
+        "definition_evidence_id": resolution.definition_evidence_identity.evidence_id,
         "definition_evidence_sha256": resolution.definition_evidence_identity.content_sha256,
+        "match_count": 1,
+        "stable_issuer_id": stable_identity.issuer_id,
+        "stable_security_id": stable_identity.security_id,
+        "stable_listing_id": stable_identity.listing_id,
+        "canonicalization_version": 1,
     }
-    listing_id = hashlib.sha256(canonical_json(listing_material)).hexdigest()
-    return InternalListingIdentity(issuer_id, security_id, listing_id)
+    digest = hashlib.sha256(canonical_json(material)).hexdigest()
+    return CrosswalkEvidenceIdentity(
+        digest, resolution.decision_at, stable_identity.issuer_id,
+        stable_identity.security_id, stable_identity.listing_id,
+    )
 
 
 FINAL_DECISION_STATUS: Mapping[str, DecisionState] = {
     "RD-001": DecisionState.NEEDS_EXACT_PROVIDER_EVIDENCE,
     "RD-002A": DecisionState.READY_TO_ADOPT,
     "RD-002B": DecisionState.READY_TO_ADOPT,
+    "RD-002C": DecisionState.NO_LONGER_REQUIRED,
     "RD-004": DecisionState.READY_TO_ADOPT,
     "RD-008": DecisionState.READY_TO_ADOPT,
     "RD-013": DecisionState.READY_TO_ADOPT,
