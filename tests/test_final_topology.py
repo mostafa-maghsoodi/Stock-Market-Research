@@ -212,6 +212,13 @@ def test_raw_close_requires_exact_primary_venue_statistic() -> None:
     resolved = resolve_raw_primary_close(crosswalk(), session(), [item])
     assert resolved.price == 12.5
     assert resolved.evidence_identity.evidence_id == "DATABENTO-XNAS.ITCH"
+    without_reference_timestamp = DatabentoCloseStatistic(
+        "XNAS.ITCH", 7, 101, DECISION, DECISION, None,
+        12_500_000_000, 11, 1, 43, evidence("DATABENTO", "XNAS.ITCH"),
+    )
+    assert resolve_raw_primary_close(
+        crosswalk(), session(), [without_reference_timestamp]
+    ).price == 12.5
     with pytest.raises(ProductionContractError, match="WRONG_PRIMARY_VENUE"):
         resolve_raw_primary_close(crosswalk(), session(exchange="XNYS"), [item])
 
@@ -232,24 +239,24 @@ def test_databento_session_markers_must_match_official_session() -> None:
         validate_session_markers(session(), markers[:1])
 
 
-def test_raw_volume_is_policy_bound_and_rejects_unknown_conditions() -> None:
+def test_raw_volume_uses_direct_feed_semantics_without_invented_conditions() -> None:
     trade = DatabentoTradeRecord(
         "XNAS.ITCH", 7, 101, datetime(2025, 6, 30, 15, tzinfo=UTC),
-        datetime(2025, 6, 30, 15, tzinfo=UTC), 1, 100, "T", ("REGULAR",), False,
+        datetime(2025, 6, 30, 15, tzinfo=UTC), 1, 100, "T", (), False,
         "ORIGINAL", evidence("DATABENTO", "XNAS.ITCH"),
     )
-    policy = RawVolumePolicy("authority", frozenset({"REGULAR"}), frozenset(), True,
+    policy = RawVolumePolicy("authority", frozenset(), frozenset(), True,
                              "FAIL_ON_CANCEL_OR_CORRECTION")
     assert resolve_raw_primary_volume(
         crosswalk(), session(), [trade], policy=policy
     ).volume == 100
-    unresolved = DatabentoTradeRecord(
+    invented = DatabentoTradeRecord(
         "XNAS.ITCH", 7, 101, datetime(2025, 6, 30, 15, tzinfo=UTC),
         datetime(2025, 6, 30, 15, tzinfo=UTC), 2, 100, "T", ("UNKNOWN",), False,
         "ORIGINAL", evidence("DATABENTO", "XNAS.ITCH"),
     )
-    with pytest.raises(ProductionContractError, match="CONDITION_UNRESOLVED"):
-        resolve_raw_primary_volume(crosswalk(), session(), [unresolved], policy=policy)
+    with pytest.raises(ProductionContractError, match="UNDOCUMENTED_TRADE_CONDITION"):
+        resolve_raw_primary_volume(crosswalk(), session(), [invented], policy=policy)
 
 
 def test_multiclass_market_cap_and_missing_shares() -> None:

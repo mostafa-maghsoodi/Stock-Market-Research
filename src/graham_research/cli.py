@@ -33,6 +33,13 @@ from .admission import (
     validate_provider_sample_pack,
     PROVIDER_CAPABILITY_SPECIFICATION,
 )
+from .evidence import (
+    CandidateProductionEvidenceManifest,
+    CollectedEvidence,
+    collect_evidence,
+    load_evidence_requests,
+    revalidate_collected_evidence,
+)
 
 
 def _load_facts_csv(path: str | Path) -> list[FactObservation]:
@@ -122,6 +129,24 @@ def build_parser() -> argparse.ArgumentParser:
         "a22-admission-audit",
         help="print A22 blocker, human-decision, and provider-capability packets",
     )
+    collector = commands.add_parser(
+        "collect-first-run-evidence",
+        help="collect content-bound candidate evidence outside Git without admitting it",
+    )
+    collector.add_argument("request_manifest")
+    collector.add_argument("--output-directory", required=True)
+    collector.add_argument("--repository", required=True)
+    collector.add_argument("--sec-user-agent")
+    revalidate = commands.add_parser(
+        "revalidate-collected-evidence",
+        help="recompute exact bytes and identity for locally collected candidate evidence",
+    )
+    revalidate.add_argument("metadata_json")
+    candidate_manifest = commands.add_parser(
+        "validate-candidate-production-manifest",
+        help="validate a non-governing, never-admitted production evidence manifest candidate",
+    )
+    candidate_manifest.add_argument("manifest_json")
     return parser
 
 
@@ -242,6 +267,43 @@ def main(argv: Sequence[str] | None = None) -> int:
                 sort_keys=True,
             )
         )
+    elif args.command == "collect-first-run-evidence":
+        collected = [
+            collect_evidence(
+                request,
+                output_directory=args.output_directory,
+                repository=args.repository,
+                sec_user_agent=args.sec_user_agent,
+            )
+            for request in load_evidence_requests(args.request_manifest)
+        ]
+        print(json.dumps(
+            {
+                "artifact_status": "CANDIDATE_EVIDENCE_NOT_ADMITTED",
+                "collected": [item.metadata_mapping() for item in collected],
+            },
+            indent=2,
+            sort_keys=True,
+        ))
+    elif args.command == "revalidate-collected-evidence":
+        collected = CollectedEvidence.from_mapping(
+            json.loads(Path(args.metadata_json).read_text(encoding="utf-8"))
+        )
+        revalidate_collected_evidence(collected)
+        print(json.dumps({
+            "evidence_id": collected.identity.evidence_id,
+            "content_sha256": collected.identity.content_sha256,
+            "exact_byte_length": collected.exact_byte_length,
+            "valid": True,
+            "production_admitted": False,
+        }, indent=2, sort_keys=True))
+    elif args.command == "validate-candidate-production-manifest":
+        manifest = CandidateProductionEvidenceManifest.load(args.manifest_json)
+        print(json.dumps({
+            "artifact_status": manifest.artifact_status,
+            "blockers": manifest.blockers(),
+            "production_admitted": False,
+        }, indent=2, sort_keys=True))
     return 0
 
 
