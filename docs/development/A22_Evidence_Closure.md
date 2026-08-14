@@ -285,7 +285,7 @@ security_id = SHA256({identity_schema=STABLE_SECURITY_ID_V1, issuer_id,
                       share_class_namespace=OPENFIGI_SHARE_CLASS,
                       share-class FIGI})
 listing_id = SHA256({identity_schema=STABLE_LISTING_ID_V1, security_id,
-                     primary MIC, continuous listing lifecycle start})
+                     primary MIC, actual governed listing lifecycle start})
 ```
 
 Decision/acquisition timestamps, raw evidence hashes, manifest/run identity,
@@ -294,6 +294,19 @@ intervals are forbidden stable-ID inputs. They are bound instead by a separate
 `CrosswalkEvidenceIdentity`, which also binds the stable IDs, decision time,
 exact SEC/Massive/Databento evidence identities, match count, and
 canonicalization version. It may legitimately change between runs.
+
+`actual_governed_lifecycle_start` requires exact admitted boundary evidence
+under the crosswalk/corporate-action rules. It is explicitly distinct from
+`earliest_observed_provider_record`. The latter can be a left-censored provider
+coverage boundary and is provenance only. If the actual boundary is unknown:
+
+```text
+LISTING_LIFECYCLE_START_UNKNOWN
+=> stable listing_id unavailable
+```
+
+Adding earlier provider observations inside an already proved lifecycle cannot
+change the listing ID. A proved transfer or new lifecycle boundary does.
 
 Ticker is match evidence for a dated interval but is not sole identity material.
 Missing CIK/FIGI/lifecycle boundary/interval/evidence, zero matches, or multiple
@@ -326,10 +339,12 @@ range recorded by `ProviderSampleAdmissionPack.validation_start` and
 not the seasoning window.
 
 The 126 completed-session first-run evidence window is a non-authority
-`CompletedSessionLookback` derived from the decision date, official completed
-session calendar, and the already-governed Screen v2 seasoning requirement.
-It does not receive or reuse an RD identifier. Its calendar-derived start date
-is evidence, not a policy choice.
+`CompletedSessionLookback` derived from the governed decision cutoff, official
+session evidence, the latest fully completed admissible primary-market session,
+and the already-governed Screen v2 seasoning requirement. The decision-date
+session is included only when its exact normal or early close is at or before
+the cutoff; otherwise the prior completed session anchors the window. Holidays
+cannot anchor it. It does not receive or reuse an RD identifier.
 
 ## Local evidence collection
 
@@ -417,9 +432,12 @@ RD-002A = initial production-validation range: inclusive UTC validation_start
           and validation_end recorded by the existing non-production freeze;
           exact dates remain researcher-supplied and are not adopted here
 RD-002B = 2025-06-30
-FIRST_RUN_EVIDENCE_WINDOW = non-authority CompletedSessionLookback of 126
-                            completed sessions derived from RD-002B, the official
-                            calendar, and governed Screen v2 seasoning
+FIRST_RUN_EVIDENCE_WINDOW = non-authority CompletedSessionLookback of exactly
+                            126 sessions resolved from the governed cutoff,
+                            official session evidence, latest fully completed
+                            admissible primary-market session, and governed
+                            Screen v2 seasoning; decision_date alone never anchors
+                            the window
 RD-004A = EDGAR acceptance datetime is the governed availability timestamp
 RD-004B = closed exact SEC mapping contract in this document
 RD-008 = exact type-11 primary close and session-bounded native trade sum
@@ -433,8 +451,10 @@ RD-019 = component invested capital and governed two-period average
 RD-020 = exact denominator thresholds in this document; exclude_feature
 RD-021 = USD/SHARES/USD_PER_SHARE; non-USD accounting unavailable
 RD-022 = existing CandidateSet identity contract unchanged
-RD-CROSSWALK-001 = stable CIK/FIGI/MIC/listing-lifecycle identities separated
-                   from the date/evidence-bound CrosswalkEvidenceIdentity
+RD-CROSSWALK-001 = stable CIK/FIGI/MIC/actual-governed-lifecycle identities
+                   separated from the date/evidence-bound
+                   CrosswalkEvidenceIdentity; earliest provider observation is
+                   provenance only and an unknown actual boundary fails closed
 
 I attest that no realized strategy outcome was examined in making these decisions.
 ```

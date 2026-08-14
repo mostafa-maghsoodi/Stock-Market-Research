@@ -22,6 +22,7 @@ from graham_research.topology import (
     DatabentoSymbologyInterval,
     DatabentoTradeRecord,
     FinancingComponents,
+    GovernedListingLifecycleBoundary,
     MassiveSnapshotRecord,
     OfficialSessionRecord,
     RawVolumePolicy,
@@ -173,10 +174,11 @@ def test_crosswalk_requires_one_unique_date_venue_symbology_definition_match() -
     result = crosswalk()
     assert result.databento_instrument_id == 101
     assert result.identity_authority_status == "RD-CROSSWALK-001_REQUIRED"
-    assert result.listing_lifecycle_start == datetime(2025, 1, 1, tzinfo=UTC)
+    assert result.earliest_observed_provider_record == datetime(2025, 1, 1, tzinfo=UTC)
+    assert result.actual_governed_lifecycle_start is None
 
 
-def test_contiguous_definition_refresh_preserves_listing_lifecycle_start() -> None:
+def test_contiguous_definition_refresh_tracks_provider_observation_only() -> None:
     boundary = datetime(2025, 1, 1, tzinfo=UTC)
     earlier = definition(
         effective_start=datetime(2024, 1, 2, 14, 30, tzinfo=UTC),
@@ -186,7 +188,23 @@ def test_contiguous_definition_refresh_preserves_listing_lifecycle_start() -> No
     result = resolve_massive_databento_crosswalk(
         massive(), [mapping()], [earlier, current], decision_at=DECISION
     )
-    assert result.listing_lifecycle_start == earlier.effective_start
+    assert result.earliest_observed_provider_record == earlier.effective_start
+    assert result.actual_governed_lifecycle_start is None
+
+
+def test_governed_lifecycle_boundary_is_distinct_from_provider_coverage() -> None:
+    actual_start = datetime(2020, 1, 2, 14, 30, tzinfo=UTC)
+    boundary = GovernedListingLifecycleBoundary(
+        "0000000001", "BBG-CLASS", "XNAS", actual_start,
+        "AUTHORITATIVE_INITIAL_LISTING", evidence("SEC_EDGAR", "FILING_ARCHIVE"),
+    )
+    result = resolve_massive_databento_crosswalk(
+        massive(), [mapping()], [definition()], decision_at=DECISION,
+        lifecycle_boundary=boundary,
+    )
+    assert result.actual_governed_lifecycle_start == actual_start
+    assert result.earliest_observed_provider_record != actual_start
+    assert result.lifecycle_boundary_evidence_identity == boundary.evidence_identity
 
 
 def test_crosswalk_missing_and_ambiguous_fail_closed() -> None:

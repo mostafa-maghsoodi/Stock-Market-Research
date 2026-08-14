@@ -51,22 +51,83 @@ SCREEN_V2_APPROVAL_RECORD_IDENTITY: Mapping[str, str] = {
 
 @dataclass(frozen=True)
 class CompletedSessionLookback:
-    """Derived execution window; this is not an RD authority decision."""
+    """Cutoff-resolved execution window; this is not an RD authority decision."""
 
     decision_date: date
+    decision_cutoff: datetime
+    anchor_completed_session: date
     completed_sessions: int
-    include_decision_session: bool
+    completed_session_dates: tuple[date, ...]
     derived_from: str
 
+    def __post_init__(self) -> None:
+        if self.decision_cutoff.tzinfo is None:
+            raise ProductionContractError("LOOKBACK_DECISION_CUTOFF_NAIVE")
+        if self.completed_sessions <= 0:
+            raise ProductionContractError("LOOKBACK_SESSION_COUNT_INVALID")
+        if len(self.completed_session_dates) != self.completed_sessions:
+            raise ProductionContractError("LOOKBACK_SESSION_COUNT_MISMATCH")
+        if tuple(sorted(set(self.completed_session_dates))) != self.completed_session_dates:
+            raise ProductionContractError("LOOKBACK_SESSIONS_NOT_UNIQUE_ORDERED")
+        if self.completed_session_dates[-1] != self.anchor_completed_session:
+            raise ProductionContractError("LOOKBACK_ANCHOR_MISMATCH")
 
-FIRST_RUN_EVIDENCE_WINDOW = CompletedSessionLookback(
-    decision_date=FIRST_RUN_DECISION_DATE,
-    completed_sessions=cast(
-        int, SCREEN_V2_CONFIG["minimum_seasoning_completed_sessions"]
-    ),
-    include_decision_session=True,
-    derived_from="SCREEN_V2_CONFIG.minimum_seasoning_completed_sessions",
+
+FIRST_RUN_EVIDENCE_WINDOW_COMPLETED_SESSIONS = cast(
+    int, SCREEN_V2_CONFIG["minimum_seasoning_completed_sessions"]
 )
+
+
+def resolve_completed_session_lookback(
+    sessions: Sequence[OfficialSessionRecord],
+    *,
+    decision_date: date,
+    decision_cutoff: datetime,
+    primary_exchange: str,
+    completed_sessions: int = FIRST_RUN_EVIDENCE_WINDOW_COMPLETED_SESSIONS,
+) -> CompletedSessionLookback:
+    """Resolve the latest fully completed official session at the cutoff."""
+
+    if decision_cutoff.tzinfo is None:
+        raise ProductionContractError("LOOKBACK_DECISION_CUTOFF_NAIVE")
+    if completed_sessions <= 0:
+        raise ProductionContractError("LOOKBACK_SESSION_COUNT_INVALID")
+    decision_day_evidence = [
+        item for item in sessions
+        if item.exchange == primary_exchange and item.session_date == decision_date
+    ]
+    if not decision_day_evidence:
+        raise ProductionContractError("LOOKBACK_DECISION_DATE_SESSION_EVIDENCE_MISSING")
+    if len(decision_day_evidence) != 1:
+        raise ProductionContractError("LOOKBACK_DECISION_DATE_SESSION_EVIDENCE_AMBIGUOUS")
+    candidates = sorted(
+        (
+            item for item in sessions
+            if item.exchange == primary_exchange
+            and item.status == "COMPLETED"
+            and item.session_date <= decision_date
+            and item.session_close <= decision_cutoff
+        ),
+        key=lambda item: (item.session_date, item.session_close),
+    )
+    dates = [item.session_date for item in candidates]
+    if len(dates) != len(set(dates)):
+        raise ProductionContractError("LOOKBACK_OFFICIAL_SESSION_AMBIGUOUS")
+    if len(candidates) < completed_sessions:
+        raise ProductionContractError("LOOKBACK_COMPLETED_SESSION_HISTORY_INSUFFICIENT")
+    selected = tuple(item.session_date for item in candidates[-completed_sessions:])
+    return CompletedSessionLookback(
+        decision_date=decision_date,
+        decision_cutoff=decision_cutoff,
+        anchor_completed_session=selected[-1],
+        completed_sessions=completed_sessions,
+        completed_session_dates=selected,
+        derived_from=(
+            "GOVERNED_DECISION_CUTOFF+OFFICIAL_SESSION_EVIDENCE+"
+            "PRIOR_COMPLETED_PRIMARY_MARKET_SESSION+"
+            "SCREEN_V2_CONFIG.minimum_seasoning_completed_sessions"
+        ),
+    )
 
 
 class DecisionState(str, Enum):
@@ -574,9 +635,13 @@ def _require_stable_resolution_material(resolution: CrosswalkResolution) -> date
         raise ProductionContractError("STABLE_SECURITY_REQUIRES_SHARE_CLASS_FIGI")
     if not resolution.primary_exchange.strip():
         raise ProductionContractError("STABLE_LISTING_REQUIRES_PRIMARY_MIC")
-    lifecycle_start = resolution.listing_lifecycle_start
-    if lifecycle_start is None or lifecycle_start.tzinfo is None:
-        raise ProductionContractError("STABLE_LISTING_LIFECYCLE_START_MISSING")
+    lifecycle_start = resolution.actual_governed_lifecycle_start
+    if lifecycle_start is None:
+        raise ProductionContractError("LISTING_LIFECYCLE_START_UNKNOWN")
+    if lifecycle_start.tzinfo is None:
+        raise ProductionContractError("STABLE_LISTING_LIFECYCLE_START_NAIVE")
+    if resolution.lifecycle_boundary_evidence_identity is None:
+        raise ProductionContractError("LISTING_LIFECYCLE_BOUNDARY_EVIDENCE_MISSING")
     return lifecycle_start
 
 
@@ -625,7 +690,7 @@ def derive_internal_listing_identity(
         "identity_schema": "STABLE_LISTING_ID_V1",
         "security_id": security_id,
         "primary_mic": resolution.primary_exchange,
-        "listing_lifecycle_start": lifecycle_start.isoformat(),
+        "actual_governed_lifecycle_start": lifecycle_start.isoformat(),
     }
     listing_id = hashlib.sha256(canonical_json(listing_material)).hexdigest()
     return InternalListingIdentity(issuer_id, security_id, listing_id)
@@ -674,7 +739,19 @@ def derive_crosswalk_evidence_identity(
         "symbology_effective_end": symbology_end.isoformat(),
         "definition_effective_start": definition_start.isoformat(),
         "definition_effective_end": definition_end.isoformat(),
-        "listing_lifecycle_start": lifecycle_start.isoformat(),
+        "earliest_observed_provider_record": (
+            resolution.earliest_observed_provider_record.isoformat()
+            if resolution.earliest_observed_provider_record is not None else None
+        ),
+        "actual_governed_lifecycle_start": lifecycle_start.isoformat(),
+        "lifecycle_boundary_evidence_id": (
+            resolution.lifecycle_boundary_evidence_identity.evidence_id
+            if resolution.lifecycle_boundary_evidence_identity is not None else None
+        ),
+        "lifecycle_boundary_evidence_sha256": (
+            resolution.lifecycle_boundary_evidence_identity.content_sha256
+            if resolution.lifecycle_boundary_evidence_identity is not None else None
+        ),
         "massive_evidence_id": resolution.massive_evidence_identity.evidence_id,
         "massive_evidence_sha256": resolution.massive_evidence_identity.content_sha256,
         "sec_cik_evidence_id": sec_cik_evidence_identity.evidence_id,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 from pathlib import Path
 
@@ -12,7 +12,7 @@ from graham_research.closure import (
     ClosedFinancingComponents,
     ComponentEvidenceState,
     FINAL_DECISION_STATUS,
-    FIRST_RUN_EVIDENCE_WINDOW,
+    FIRST_RUN_EVIDENCE_WINDOW_COMPLETED_SESSIONS,
     FinancingComponentValue,
     INITIAL_VALIDATION_RANGE_RULE,
     RD002A_ORIGINAL_MEANING,
@@ -30,6 +30,7 @@ from graham_research.closure import (
     normalize_sec_value,
     require_prior_completed_session_observation,
     resolve_pit_class_shares,
+    resolve_completed_session_lookback,
     select_closed_sec_mapping_fact,
     resolve_spac_post_combination_boundary,
     validate_sec_mapping_fact,
@@ -78,12 +79,18 @@ def sec_fact(**changes: object) -> SecFilingFact:
     return SecFilingFact(**values)
 
 
-def session(day: date, *, status: str = "COMPLETED") -> OfficialSessionRecord:
+def session(
+    day: date,
+    *,
+    status: str = "COMPLETED",
+    close_hour: int = 20,
+    early_close: bool = False,
+) -> OfficialSessionRecord:
     return OfficialSessionRecord(
         "XNAS", day, "America/New_York",
         datetime(day.year, day.month, day.day, 13, 30, tzinfo=UTC),
-        datetime(day.year, day.month, day.day, 20, 0, tzinfo=UTC),
-        status, False,
+        datetime(day.year, day.month, day.day, close_hour, 0, tzinfo=UTC),
+        status, early_close,
         identity("OFFICIAL_EXCHANGE_CALENDAR", "NASDAQ_CALENDAR"),
     )
 
@@ -93,12 +100,23 @@ def crosswalk() -> CrosswalkResolution:
     symbology = identity("DATABENTO", "XNAS.ITCH", "2")
     definition = identity("DATABENTO", "XNAS.ITCH", "3")
     return CrosswalkResolution(
-        DECISION, "0000000001", "BBG-CLASS", "ABC", "XNAS", "XNAS.ITCH",
-        "ABC", 101, 7, massive, symbology, definition,
-        "RD-CROSSWALK-001_REQUIRED",
-        datetime(2025, 1, 1, tzinfo=UTC), datetime(2026, 1, 1, tzinfo=UTC),
-        datetime(2025, 1, 1, tzinfo=UTC), datetime(2026, 1, 1, tzinfo=UTC),
-        datetime(2020, 1, 2, 14, 30, tzinfo=UTC),
+        decision_at=DECISION, cik="0000000001", share_class_figi="BBG-CLASS",
+        massive_ticker="ABC", primary_exchange="XNAS",
+        databento_dataset="XNAS.ITCH", databento_raw_symbol="ABC",
+        databento_instrument_id=101, databento_publisher_id=7,
+        massive_evidence_identity=massive,
+        symbology_evidence_identity=symbology,
+        definition_evidence_identity=definition,
+        identity_authority_status="RD-CROSSWALK-001_REQUIRED",
+        symbology_effective_start=datetime(2025, 1, 1, tzinfo=UTC),
+        symbology_effective_end=datetime(2026, 1, 1, tzinfo=UTC),
+        definition_effective_start=datetime(2025, 1, 1, tzinfo=UTC),
+        definition_effective_end=datetime(2026, 1, 1, tzinfo=UTC),
+        earliest_observed_provider_record=datetime(2025, 1, 1, tzinfo=UTC),
+        actual_governed_lifecycle_start=datetime(2020, 1, 2, 14, 30, tzinfo=UTC),
+        lifecycle_boundary_evidence_identity=identity(
+            "OFFICIAL_LISTING_AUTHORITY", "LISTING_BOUNDARY"
+        ),
     )
 
 
@@ -239,9 +257,73 @@ def test_rd002a_keeps_validation_range_and_derived_window_is_not_an_rd() -> None
     assert RD002A_ORIGINAL_MEANING == "INITIAL_PRODUCTION_VALIDATION_RANGE"
     assert "VALIDATION" in INITIAL_VALIDATION_RANGE_RULE
     assert "126" not in INITIAL_VALIDATION_RANGE_RULE
-    assert FIRST_RUN_EVIDENCE_WINDOW.completed_sessions == 126
-    assert FIRST_RUN_EVIDENCE_WINDOW.decision_date == date(2025, 6, 30)
-    assert not FIRST_RUN_EVIDENCE_WINDOW.derived_from.startswith("RD-")
+    assert FIRST_RUN_EVIDENCE_WINDOW_COMPLETED_SESSIONS == 126
+
+
+def lookback_history() -> list[OfficialSessionRecord]:
+    decision = date(2025, 6, 30)
+    dates: list[date] = []
+    cursor = decision
+    while len(dates) < 127:
+        if cursor.weekday() < 5:
+            dates.append(cursor)
+        cursor -= timedelta(days=1)
+    return [session(day) for day in reversed(dates)]
+
+
+def test_session_lookback_anchor_respects_decision_cutoff() -> None:
+    sessions = lookback_history()
+    before_close = resolve_completed_session_lookback(
+        sessions, decision_date=date(2025, 6, 30),
+        decision_cutoff=datetime(2025, 6, 30, 19, 59, tzinfo=UTC),
+        primary_exchange="XNAS",
+    )
+    assert before_close.anchor_completed_session == date(2025, 6, 27)
+    assert len(before_close.completed_session_dates) == 126
+    assert before_close.completed_session_dates == tuple(
+        item.session_date for item in sessions[:-1]
+    )
+
+    after_close = resolve_completed_session_lookback(
+        sessions, decision_date=date(2025, 6, 30),
+        decision_cutoff=datetime(2025, 6, 30, 20, 1, tzinfo=UTC),
+        primary_exchange="XNAS",
+    )
+    assert after_close.anchor_completed_session == date(2025, 6, 30)
+    assert len(after_close.completed_session_dates) == 126
+    assert not after_close.derived_from.startswith("RD-")
+
+
+def test_session_lookback_holiday_and_early_close_boundaries() -> None:
+    history = lookback_history()[:-1]
+    with pytest.raises(ProductionContractError, match="SESSION_EVIDENCE_MISSING"):
+        resolve_completed_session_lookback(
+            history, decision_date=date(2025, 6, 30),
+            decision_cutoff=datetime(2025, 6, 30, 23, 0, tzinfo=UTC),
+            primary_exchange="XNAS",
+        )
+    holiday = session(date(2025, 6, 30), status="HOLIDAY")
+    resolved_holiday = resolve_completed_session_lookback(
+        [*history, holiday], decision_date=date(2025, 6, 30),
+        decision_cutoff=datetime(2025, 6, 30, 23, 0, tzinfo=UTC),
+        primary_exchange="XNAS",
+    )
+    assert resolved_holiday.anchor_completed_session == date(2025, 6, 27)
+
+    early = session(date(2025, 6, 30), close_hour=17, early_close=True)
+    before_early_close = resolve_completed_session_lookback(
+        [*history, early], decision_date=date(2025, 6, 30),
+        decision_cutoff=datetime(2025, 6, 30, 16, 59, tzinfo=UTC),
+        primary_exchange="XNAS",
+    )
+    assert before_early_close.anchor_completed_session == date(2025, 6, 27)
+    after_early_close = resolve_completed_session_lookback(
+        [*history, early], decision_date=date(2025, 6, 30),
+        decision_cutoff=datetime(2025, 6, 30, 17, 1, tzinfo=UTC),
+        primary_exchange="XNAS",
+    )
+    assert after_early_close.anchor_completed_session == date(2025, 6, 30)
+    assert len(after_early_close.completed_session_dates) == 126
 
 
 def test_screen_v2_approval_identity_is_exact_and_not_evidence_placeholder() -> None:
@@ -282,6 +364,35 @@ def test_stable_ids_exclude_run_and_evidence_provenance() -> None:
     ) == first
 
 
+def test_provider_coverage_start_is_not_governed_lifecycle_start() -> None:
+    resolution = crosswalk()
+    assert (
+        resolution.earliest_observed_provider_record
+        != resolution.actual_governed_lifecycle_start
+    )
+    original = derive_internal_listing_identity(
+        resolution, sec_cik_evidence_identity=identity()
+    )
+    earlier_provider_history = replace(
+        resolution,
+        earliest_observed_provider_record=datetime(2024, 1, 2, tzinfo=UTC),
+    )
+    assert derive_internal_listing_identity(
+        earlier_provider_history, sec_cik_evidence_identity=identity()
+    ).listing_id == original.listing_id
+
+
+def test_left_censored_listing_cannot_mint_stable_listing_id() -> None:
+    left_censored = replace(
+        crosswalk(), actual_governed_lifecycle_start=None,
+        lifecycle_boundary_evidence_identity=None,
+    )
+    with pytest.raises(ProductionContractError, match="LISTING_LIFECYCLE_START_UNKNOWN"):
+        derive_internal_listing_identity(
+            left_censored, sec_cik_evidence_identity=identity()
+        )
+
+
 def test_crosswalk_evidence_changes_without_changing_stable_security() -> None:
     sec_cik = identity()
     resolution = crosswalk()
@@ -318,7 +429,10 @@ def test_identity_successors_and_exchange_transfer_create_expected_boundaries() 
     )
     transfer = replace(
         crosswalk(), primary_exchange="XNYS", databento_dataset="XNYS.PILLAR",
-        listing_lifecycle_start=datetime(2025, 7, 1, 13, 30, tzinfo=UTC),
+        actual_governed_lifecycle_start=datetime(2025, 7, 1, 13, 30, tzinfo=UTC),
+        lifecycle_boundary_evidence_identity=identity(
+            "OFFICIAL_LISTING_AUTHORITY", "EXCHANGE_TRANSFER"
+        ),
     )
     transferred = derive_internal_listing_identity(
         transfer, sec_cik_evidence_identity=sec_cik
@@ -329,7 +443,10 @@ def test_identity_successors_and_exchange_transfer_create_expected_boundaries() 
 
     successor = replace(
         crosswalk(), cik="0000000002", share_class_figi="BBG-SUCCESSOR",
-        listing_lifecycle_start=datetime(2025, 8, 1, 13, 30, tzinfo=UTC),
+        actual_governed_lifecycle_start=datetime(2025, 8, 1, 13, 30, tzinfo=UTC),
+        lifecycle_boundary_evidence_identity=identity(
+            "SEC_EDGAR", "FILING_ARCHIVE", "8"
+        ),
     )
     successor_identity = derive_internal_listing_identity(
         successor, sec_cik_evidence_identity=sec_cik
