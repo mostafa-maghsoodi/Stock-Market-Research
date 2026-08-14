@@ -560,8 +560,9 @@ def validate_production_fact(fact: FactObservation, *, session: ExchangeSessionE
     for name in ("provider", "provider_product", "native_observation_id", "source_native_vintage_identifier"):
         if not getattr(fact, name):
             raise ProductionContractError(f"FACT_{name.upper()}_MISSING")
-    if fact.provider != session.provider:
-        raise ProductionContractError("FACT_AND_MARKET_PROVIDER_MISMATCH")
+    # Accounting and market evidence may come from different admitted providers.
+    # Their join is governed by immutable issuer/security/listing crosswalk
+    # evidence, not by requiring provider names to be equal.
     if fact.available_at > session.session_close:
         raise ProductionContractError("AFTER_CLOSE_ACCOUNTING_INFORMATION")
 
@@ -1194,7 +1195,7 @@ EXTERNAL_BLOCKERS = (
 REQUIRED_FIRST_RUN_RESEARCHER_DECISION_IDS = (
     "RD-001", "RD-002B", "RD-004", "RD-008", "RD-013", "RD-014",
     "RD-015", "RD-016", "RD-017", "RD-018", "RD-019", "RD-020",
-    "RD-021", "RD-022",
+    "RD-021", "RD-022", "RD-CROSSWALK-001",
 )
 APPROVED_PRODUCTION_DECISION_AUTHORITIES: Mapping[str, Mapping[str, str]] = {}
 APPROVAL_RECORD_IDENTITY_KEYS = frozenset({

@@ -49,6 +49,7 @@ Required before the first real run:
 | RD-020 | Denominator-specific near-zero materiality | `NEW_AUTHORITY_REQUIRED` |
 | RD-021 | Unit/currency normalization | `NEW_AUTHORITY_REQUIRED` |
 | RD-022 | Governing CandidateSet evidence identity schema | `NEW_AUTHORITY_REQUIRED` |
+| RD-CROSSWALK-001 | Massive-to-Databento identity/listing crosswalk | `NEW_AUTHORITY_REQUIRED` |
 
 RD-002C, the full intended historical research range, is required before
 multi-date historical research but not before the first single-date screen.
@@ -126,6 +127,13 @@ RD-021.per_field_normalization =
 
 RD-022.governing_identity_fields = <EXACT CLOSED FIELD LIST>
 RD-022.canonicalization = <EXACT APPROVED CANONICALIZATION>
+
+RD-CROSSWALK-001.identity_scheme =
+  <EXACT CONTENT-BOUND ISSUER/SECURITY/LISTING IDENTITY SCHEME>
+RD-CROSSWALK-001.match_rule =
+  <DECISION DATE + MASSIVE TICKER/PRIMARY MIC/SHARE-CLASS FIGI + DATABENTO
+   DATASET/HISTORICAL SYMBOLOGY/INSTRUMENT ID/DEFINITION INTERVAL>
+RD-CROSSWALK-001.missing_or_ambiguous_behavior = <FAIL CLOSED>
 
 I understand that this declaration is project-governance input only. It is not
 trading, transaction, portfolio-construction, or money-movement authority.
