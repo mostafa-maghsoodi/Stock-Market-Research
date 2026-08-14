@@ -671,6 +671,21 @@ RESEARCHER_DECISIONS = (
         "downstream_field": "CandidateSet governing evidence identity schema",
         "required_before_first_run": True,
     },
+    {
+        "decision_id": "RD-CROSSWALK-001",
+        "decision_name": "Massive-to-Databento identity and listing crosswalk",
+        "why_required": "date, ticker, and venue can identify one Databento instrument but do not themselves authorize stable internal issuer/security/listing identities",
+        "governing_clause": "Screen v2 Section 12 items 3, 7, and 14",
+        "allowed_domain": "a closed, content-bound identity scheme using admitted CIK, share-class FIGI, MIC, Databento dataset, historical symbology interval, instrument ID, definition interval, and evidence identities",
+        "options": "approve the proposed content-bound scheme or another exact scheme that never treats ticker alone as identity",
+        "tradeoffs": "provider-native identifiers improve auditability; successor events and missing FIGIs require explicit fail-closed handling",
+        "framing": "require one and only one date-effective venue match and reject missing or ambiguous joins",
+        "successor_governance_if_changed": True,
+        "authority_path": "NEW_AUTHORITY_REQUIRED",
+        "timestamp_or_attestation_required": True,
+        "downstream_field": "issuer_id, security_id, listing_id, and issuer_crosswalk_id",
+        "required_before_first_run": True,
+    },
 )
 
 

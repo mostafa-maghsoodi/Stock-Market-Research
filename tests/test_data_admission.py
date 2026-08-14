@@ -100,22 +100,22 @@ def test_provider_capability_specification_is_closed_and_complete() -> None:
 
 def test_researcher_packet_separates_three_sample_boundaries_and_authority() -> None:
     decisions = {item["decision_id"]: item for item in researcher_decision_packet()}
-    assert len(decisions) == 16
+    assert len(decisions) == 17
     assert decisions["RD-002A"]["decision_name"] == "initial production-validation range"
     assert decisions["RD-002B"]["required_before_first_run"] is True
     assert decisions["RD-002C"]["required_before_first_run"] is False
     for decision_id in (
         "RD-001", "RD-002B", "RD-002C", "RD-004", "RD-008", "RD-013",
         "RD-014", "RD-015", "RD-016", "RD-017", "RD-018", "RD-019",
-        "RD-020", "RD-021", "RD-022",
+        "RD-020", "RD-021", "RD-022", "RD-CROSSWALK-001",
     ):
         assert decisions[decision_id]["authority_path"] == "NEW_AUTHORITY_REQUIRED"
 
 
 def test_readiness_cannot_discover_or_self_assert_human_approval() -> None:
-    assert len(REQUIRED_FIRST_RUN_RESEARCHER_DECISION_IDS) == 14
+    assert len(REQUIRED_FIRST_RUN_RESEARCHER_DECISION_IDS) == 15
     blockers = production_decision_authority_blockers(REPOSITORY)
-    assert len(blockers) == 14
+    assert len(blockers) == 15
     assert all(item.startswith("RESEARCHER_DECISION_AUTHORITY_UNRESOLVED:") for item in blockers)
 
 
