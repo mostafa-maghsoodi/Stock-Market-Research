@@ -58,6 +58,9 @@ def evidence(**changes: object) -> EvidenceIdentity:
 def master(**changes: object) -> SecurityMasterRecord:
     values = {
         "issuer_id": "issuer-1", "security_id": "security-1", "listing_id": "listing-1",
+        "provider_native_issuer_id": "native-issuer-1",
+        "provider_native_security_id": "native-security-1",
+        "provider_native_listing_id": "native-listing-1",
         "exchange": "NYSE", "currency": "USD",
         "security_type": "COMMON_OPERATING_COMPANY_EQUITY",
         "is_common_equity": True, "is_operating_company": True,
@@ -248,7 +251,8 @@ def test_field_catalog_is_closed_and_missing_mappings_fail() -> None:
 def test_field_entry_rejects_provider_evidence_mismatch() -> None:
     with pytest.raises(ProductionContractError, match="provider evidence mismatch"):
         FieldCatalogEntry(
-            "revenue", "reported revenue", "DURATION", "ANNUAL", "USD",
+            "revenue", "reported revenue", "DURATION", "ANNUAL",
+            "USD_MILLIONS", "USD", 1_000_000, "REPORTED_USD",
             "P", "PRODUCT", "native-revenue", evidence(provider="OTHER"),
             date(2000, 1, 1), None, "filing timestamp", "FIRST_REPORTED", ("revenue",),
             evidence(provider="P", provider_product="PRODUCT"),

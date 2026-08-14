@@ -80,6 +80,22 @@ REQUIRED_CANONICAL_FIELDS = frozenset({
     "total_market_capitalization",
     "enterprise_value",
 })
+CANONICAL_FIELD_UNITS = {
+    "revenue": "USD",
+    "gross_profit": "USD",
+    "operating_income": "USD",
+    "operating_cash_flow": "USD",
+    "capital_expenditures": "USD",
+    "total_assets": "USD",
+    "income_before_tax": "USD",
+    "income_tax_expense": "USD",
+    "invested_capital": "USD",
+    "shares_outstanding": "SHARES",
+    "raw_close": "USD_PER_SHARE",
+    "raw_volume": "SHARES",
+    "total_market_capitalization": "USD",
+    "enterprise_value": "USD",
+}
 REQUIRED_CAPABILITIES = (
     "historical_pit_fundamentals",
     "first_reported_revision_history",
@@ -211,7 +227,10 @@ class FieldCatalogEntry:
     economic_meaning: str
     period_type: str
     reporting_frequency: str
-    unit: str
+    native_unit: str
+    canonical_unit: str
+    scaling_factor_to_canonical: float
+    currency_semantics: str
     provider: str
     provider_product: str
     native_field_id: str
@@ -225,11 +244,27 @@ class FieldCatalogEntry:
 
     def __post_init__(self) -> None:
         for name in (
-            "canonical_field_id", "economic_meaning", "unit", "provider",
+            "canonical_field_id", "economic_meaning", "native_unit",
+            "canonical_unit", "currency_semantics", "provider",
             "provider_product", "native_field_id", "public_availability_semantics",
             "revision_restatement_semantics",
         ):
             _nonempty(getattr(self, name), name)
+        if (
+            isinstance(self.scaling_factor_to_canonical, bool)
+            or not isinstance(self.scaling_factor_to_canonical, (int, float))
+            or not math.isfinite(float(self.scaling_factor_to_canonical))
+            or self.scaling_factor_to_canonical <= 0
+        ):
+            raise ProductionContractError(
+                "scaling_factor_to_canonical must be finite and positive"
+            )
+        expected_unit = CANONICAL_FIELD_UNITS.get(self.canonical_field_id)
+        if expected_unit is not None and self.canonical_unit != expected_unit:
+            raise ProductionContractError(
+                f"canonical unit mismatch for {self.canonical_field_id}: "
+                f"{self.canonical_unit!r} != {expected_unit!r}"
+            )
         if self.period_type not in {"INSTANT", "DURATION", "MARKET_SESSION"}:
             raise ProductionContractError("unsupported field period_type")
         if self.reporting_frequency not in {"ANNUAL", "DAILY", "INSTANT"}:
@@ -246,7 +281,9 @@ class FieldCatalogEntry:
     def from_mapping(cls, value: Mapping[str, Any]) -> "FieldCatalogEntry":
         _exact_keys(value, {
             "canonical_field_id", "economic_meaning", "period_type",
-            "reporting_frequency", "unit", "provider", "provider_product",
+            "reporting_frequency", "native_unit", "canonical_unit",
+            "scaling_factor_to_canonical", "currency_semantics",
+            "provider", "provider_product",
             "native_field_id", "mapping_evidence_identity", "effective_start",
             "effective_end", "public_availability_semantics",
             "revision_restatement_semantics", "allowed_proxy_roles", "source_provenance",
@@ -254,7 +291,10 @@ class FieldCatalogEntry:
         return cls(
             canonical_field_id=value["canonical_field_id"],
             economic_meaning=value["economic_meaning"], period_type=value["period_type"],
-            reporting_frequency=value["reporting_frequency"], unit=value["unit"],
+            reporting_frequency=value["reporting_frequency"],
+            native_unit=value["native_unit"], canonical_unit=value["canonical_unit"],
+            scaling_factor_to_canonical=value["scaling_factor_to_canonical"],
+            currency_semantics=value["currency_semantics"],
             provider=value["provider"], provider_product=value["provider_product"],
             native_field_id=value["native_field_id"],
             mapping_evidence_identity=EvidenceIdentity.from_mapping(value["mapping_evidence_identity"]),
@@ -312,6 +352,9 @@ class SecurityMasterRecord:
     issuer_id: str
     security_id: str
     listing_id: str
+    provider_native_issuer_id: str
+    provider_native_security_id: str
+    provider_native_listing_id: str
     exchange: str
     currency: str
     security_type: str
@@ -329,7 +372,10 @@ class SecurityMasterRecord:
     evidence_identity: EvidenceIdentity
 
     def __post_init__(self) -> None:
-        for name in ("issuer_id", "security_id", "listing_id", "exchange", "currency",
+        for name in (
+                     "issuer_id", "security_id", "listing_id",
+                     "provider_native_issuer_id", "provider_native_security_id",
+                     "provider_native_listing_id", "exchange", "currency",
                      "security_type", "share_class_id", "issuer_crosswalk_id"):
             _nonempty(getattr(self, name), name)
         for name in ("is_common_equity", "is_operating_company", "is_primary_listing",
@@ -361,6 +407,8 @@ class SecurityMasterRecord:
     def from_mapping(cls, value: Mapping[str, Any]) -> "SecurityMasterRecord":
         _exact_keys(value, {
             "issuer_id", "security_id", "listing_id", "exchange", "currency",
+            "provider_native_issuer_id", "provider_native_security_id",
+            "provider_native_listing_id",
             "security_type", "is_common_equity", "is_operating_company",
             "is_primary_listing", "effective_start", "effective_end",
             "is_inactive_or_delisted", "corporate_action_predecessor_security_id",
@@ -370,6 +418,9 @@ class SecurityMasterRecord:
         return cls(
             issuer_id=value["issuer_id"], security_id=value["security_id"],
             listing_id=value["listing_id"], exchange=value["exchange"], currency=value["currency"],
+            provider_native_issuer_id=value["provider_native_issuer_id"],
+            provider_native_security_id=value["provider_native_security_id"],
+            provider_native_listing_id=value["provider_native_listing_id"],
             security_type=value["security_type"], is_common_equity=value["is_common_equity"],
             is_operating_company=value["is_operating_company"], is_primary_listing=value["is_primary_listing"],
             effective_start=date.fromisoformat(value["effective_start"]),
@@ -633,6 +684,22 @@ class CandidateSet:
             _sha256(value, name)
         if len(self.members) != 100:
             raise ProductionContractError("CandidateSet requires exactly 100 members")
+        for member in self.members:
+            _exact_keys(member, {"security_id", "composite_score"}, "CandidateSet member")
+            _nonempty(member["security_id"], "CandidateSet member security_id")
+            score = member["composite_score"]
+            if (
+                isinstance(score, bool)
+                or not isinstance(score, (int, float))
+                or not math.isfinite(float(score))
+            ):
+                raise ProductionContractError(
+                    "CandidateSet member composite_score must be finite"
+                )
+        try:
+            date.fromisoformat(self.decision_date[:10])
+        except (TypeError, ValueError) as exc:
+            raise ProductionContractError("CandidateSet decision_date is invalid") from exc
         expected = sorted(self.members, key=lambda row: (-float(row["composite_score"]), row["security_id"]))
         if list(self.members) != expected:
             raise ProductionContractError("CandidateSet ordering is invalid")
@@ -650,6 +717,138 @@ class CandidateSet:
             "members": [dict(item) for item in self.members],
             "transaction_authority": False,
         }
+
+    def canonical_bytes(self) -> bytes:
+        """Return deterministic CandidateSet bytes without changing ranking scope."""
+
+        return canonical_json(self.to_dict()) + b"\n"
+
+
+CANDIDATE_SELECTION_RULE = {
+    "candidate_sets": 1,
+    "candidate_count": 100,
+    "ordering": ["composite_score descending", "security_id ascending"],
+    "tiers": None,
+}
+CANDIDATE_SELECTION_RULE_DIGEST = hashlib.sha256(
+    canonical_json(CANDIDATE_SELECTION_RULE)
+).hexdigest()
+
+
+@dataclass(frozen=True)
+class CandidateSetDerivedIdentity:
+    """Non-governing, mechanically derived CandidateSet evidence envelope.
+
+    Screen v2 leaves the exact *governing* production CandidateSet identity
+    contract unresolved.  This envelope closes only the deterministic hashing
+    implementation and cannot manufacture that missing authority.
+    """
+
+    artifact_type: str
+    identity_schema_version: int
+    authority_status: str
+    canonicalization: str
+    candidate_set_exact_byte_sha256: str
+    candidate_set_byte_length: int
+    ranked_frame_digest: str
+    screen_v2_configuration_digest: str
+    governed_batch_lineage_sha256: str
+    eligible_population_digest: str
+    selection_rule_digest: str
+    production_evidence_manifest_sha256: str
+    decision_date: str
+    derived_identity_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.artifact_type != "CANDIDATE_SET_DERIVED_IDENTITY":
+            raise ProductionContractError("candidate identity artifact type is closed")
+        if self.identity_schema_version != 1:
+            raise ProductionContractError("candidate identity schema is unsupported")
+        if self.authority_status != "NON_GOVERNING_DERIVED_IDENTITY":
+            raise ProductionContractError("candidate identity cannot self-assert authority")
+        if self.canonicalization != "canonical_json_v1_plus_lf":
+            raise ProductionContractError("candidate canonicalization is unsupported")
+        if not isinstance(self.candidate_set_byte_length, int) or self.candidate_set_byte_length <= 0:
+            raise ProductionContractError("candidate byte length must be positive")
+        for name in (
+            "candidate_set_exact_byte_sha256", "ranked_frame_digest",
+            "screen_v2_configuration_digest", "governed_batch_lineage_sha256",
+            "eligible_population_digest", "selection_rule_digest",
+            "production_evidence_manifest_sha256", "derived_identity_sha256",
+        ):
+            _sha256(getattr(self, name), name)
+        if self.selection_rule_digest != CANDIDATE_SELECTION_RULE_DIGEST:
+            raise ProductionContractError("candidate selection-rule identity mismatch")
+        date.fromisoformat(self.decision_date[:10])
+        expected_identity = hashlib.sha256(
+            canonical_json(self.identity_payload())
+        ).hexdigest()
+        if self.derived_identity_sha256 != expected_identity:
+            raise ProductionContractError("candidate derived identity digest mismatch")
+
+    def identity_payload(self) -> dict[str, Any]:
+        return {
+            "artifact_type": self.artifact_type,
+            "identity_schema_version": self.identity_schema_version,
+            "authority_status": self.authority_status,
+            "canonicalization": self.canonicalization,
+            "candidate_set_exact_byte_sha256": self.candidate_set_exact_byte_sha256,
+            "candidate_set_byte_length": self.candidate_set_byte_length,
+            "ranked_frame_digest": self.ranked_frame_digest,
+            "screen_v2_configuration_digest": self.screen_v2_configuration_digest,
+            "governed_batch_lineage_sha256": self.governed_batch_lineage_sha256,
+            "eligible_population_digest": self.eligible_population_digest,
+            "selection_rule_digest": self.selection_rule_digest,
+            "production_evidence_manifest_sha256": self.production_evidence_manifest_sha256,
+            "decision_date": self.decision_date,
+        }
+
+    def verify(
+        self,
+        candidate_set: CandidateSet,
+        *,
+        eligible_population_digest: str,
+        production_evidence_manifest_sha256: str,
+    ) -> None:
+        expected = derive_candidate_set_identity(
+            candidate_set,
+            eligible_population_digest=eligible_population_digest,
+            production_evidence_manifest_sha256=production_evidence_manifest_sha256,
+        )
+        if self != expected:
+            raise ProductionContractError("CANDIDATE_SET_DERIVED_IDENTITY_MISMATCH")
+
+
+def derive_candidate_set_identity(
+    candidate_set: CandidateSet,
+    *,
+    eligible_population_digest: str,
+    production_evidence_manifest_sha256: str,
+) -> CandidateSetDerivedIdentity:
+    """Derive reproducible evidence identity; does not resolve EXT-022 authority."""
+
+    _sha256(eligible_population_digest, "eligible_population_digest")
+    _sha256(production_evidence_manifest_sha256, "production_evidence_manifest_sha256")
+    candidate_bytes = candidate_set.canonical_bytes()
+    payload = {
+        "artifact_type": "CANDIDATE_SET_DERIVED_IDENTITY",
+        "identity_schema_version": 1,
+        "authority_status": "NON_GOVERNING_DERIVED_IDENTITY",
+        "canonicalization": "canonical_json_v1_plus_lf",
+        "candidate_set_exact_byte_sha256": hashlib.sha256(candidate_bytes).hexdigest(),
+        "candidate_set_byte_length": len(candidate_bytes),
+        "ranked_frame_digest": candidate_set.ranked_frame_digest,
+        "screen_v2_configuration_digest": candidate_set.screen_v2_configuration_digest,
+        "governed_batch_lineage_sha256": candidate_set.governed_batch_lineage_sha256,
+        "eligible_population_digest": eligible_population_digest,
+        "selection_rule_digest": CANDIDATE_SELECTION_RULE_DIGEST,
+        "production_evidence_manifest_sha256": production_evidence_manifest_sha256,
+        "decision_date": candidate_set.decision_date,
+    }
+    return CandidateSetDerivedIdentity(
+        **payload,
+        derived_identity_sha256=hashlib.sha256(canonical_json(payload)).hexdigest(),
+    )
 
 
 def create_candidate_set(
@@ -696,6 +895,25 @@ def create_candidate_set(
     return CandidateSet(
         1, SCREEN_V2_CONFIG_DIGEST, canonical_ranked_frame_digest(ranked_frame),
         governed_batch_lineage_sha256, next(iter(decision_dates)), members,
+    )
+
+
+def canonical_eligible_population_digest(ranked_frame: pd.DataFrame) -> str:
+    """Bind the eligible population separately from protected ranking scope."""
+
+    required = set(RANKED_FRAME_DIGEST_SCOPE) | {"fcf_ev", "ebit_ev"}
+    missing = required - set(ranked_frame.columns)
+    if missing:
+        raise ProductionContractError(
+            f"eligible population is missing columns: {sorted(missing)}"
+        )
+    eligible = ranked_frame.dropna(
+        subset=["composite_score", "fcf_ev", "ebit_ev"]
+    )
+    if eligible.empty:
+        raise ProductionContractError("ELIGIBLE_POPULATION_EMPTY")
+    return canonical_ranked_frame_digest(
+        eligible.loc[:, list(RANKED_FRAME_DIGEST_SCOPE)]
     )
 
 
@@ -969,6 +1187,89 @@ EXTERNAL_BLOCKERS = (
     ("EXT-023", "exact provider capability verification", "provider/data evidence"),
 )
 
+# These are the researcher decisions required for a first production run.  The
+# mapping remains deliberately empty until a later normal Approval Record v1
+# process has completed and the researcher has explicitly approved each exact
+# committed record identity.  Record existence alone must never populate it.
+REQUIRED_FIRST_RUN_RESEARCHER_DECISION_IDS = (
+    "RD-001", "RD-002B", "RD-004", "RD-008", "RD-013", "RD-014",
+    "RD-015", "RD-016", "RD-017", "RD-018", "RD-019", "RD-020",
+    "RD-021", "RD-022",
+)
+APPROVED_PRODUCTION_DECISION_AUTHORITIES: Mapping[str, Mapping[str, str]] = {}
+APPROVAL_RECORD_IDENTITY_KEYS = frozenset({
+    "repository_id", "approval_record_path", "approval_record_commit",
+    "approval_record_git_blob", "approval_record_exact_byte_sha256",
+})
+
+
+def production_decision_authority_blockers(
+    repository: str | Path,
+) -> tuple[str, ...]:
+    """Return unresolved externally approved decision identities.
+
+    This intentionally does not discover Approval Records from the filesystem:
+    under Approval Record v1, committed bytes do not prove the human approval
+    event.  A later implementation may add only exact identities that have
+    completed that external process.
+    """
+
+    unexpected = sorted(
+        set(APPROVED_PRODUCTION_DECISION_AUTHORITIES)
+        - set(REQUIRED_FIRST_RUN_RESEARCHER_DECISION_IDS)
+    )
+    blockers = [f"UNEXPECTED_PRODUCTION_DECISION_AUTHORITY:{item}" for item in unexpected]
+    for decision_id in REQUIRED_FIRST_RUN_RESEARCHER_DECISION_IDS:
+        identity = APPROVED_PRODUCTION_DECISION_AUTHORITIES.get(decision_id)
+        if identity is None:
+            blockers.append(
+                f"RESEARCHER_DECISION_AUTHORITY_UNRESOLVED:{decision_id}"
+            )
+            continue
+        try:
+            _exact_keys(identity, APPROVAL_RECORD_IDENTITY_KEYS, "ApprovalRecordIdentity")
+            if identity["repository_id"] != REPOSITORY_ID:
+                raise ProductionContractError("approval repository identity mismatch")
+            path = Path(identity["approval_record_path"])
+            if (
+                path.is_absolute()
+                or ".." in path.parts
+                or path.parent != Path("docs/approvals/v1")
+                or path.suffix != ".json"
+            ):
+                raise ProductionContractError("approval record path is invalid")
+            commit = identity["approval_record_commit"]
+            blob = identity["approval_record_git_blob"]
+            if len(commit) != 40 or any(c not in "0123456789abcdef" for c in commit):
+                raise ProductionContractError("approval record commit is invalid")
+            if len(blob) != 40 or any(c not in "0123456789abcdef" for c in blob):
+                raise ProductionContractError("approval record blob is invalid")
+            expected_sha = _sha256(
+                identity["approval_record_exact_byte_sha256"],
+                "approval_record_exact_byte_sha256",
+            )
+            content = _git(repository, "show", f"{commit}:{path.as_posix()}")
+            actual_blob = _git(
+                repository, "rev-parse", f"{commit}:{path.as_posix()}"
+            ).decode().strip()
+            payload = json.loads(content)
+            if (
+                actual_blob != blob
+                or hashlib.sha256(content).hexdigest() != expected_sha
+                or payload.get("approval_type") != "APPROVE"
+                or payload.get("status") != "APPROVED"
+                or payload.get("no_realized_outcome_attestation", {}).get("statement")
+                != "No realized strategy outcome was examined in making this approval."
+            ):
+                raise ProductionContractError("approval record identity is unverified")
+        except (
+            KeyError, TypeError, json.JSONDecodeError, ProductionContractError
+        ):
+            blockers.append(
+                f"RESEARCHER_DECISION_AUTHORITY_UNVERIFIED:{decision_id}"
+            )
+    return tuple(blockers)
+
 
 def consolidated_external_blockers() -> list[dict[str, Any]]:
     output = []
@@ -978,7 +1279,11 @@ def consolidated_external_blockers() -> list[dict[str, Any]]:
             "required_fact_or_evidence": requirement,
             "why_required": "Screen Specification v2 Section 12/14 requires explicit, verified evidence; no default or inference is permitted.",
             "exact_contract_or_state_blocked": blocked,
-            "researcher_decision_required": blocker_id in {"EXT-002", "EXT-013", "EXT-014", "EXT-015", "EXT-016", "EXT-017", "EXT-019", "EXT-020", "EXT-021"},
+            "researcher_decision_required": blocker_id in {
+                "EXT-001", "EXT-002", "EXT-004", "EXT-008", "EXT-013",
+                "EXT-014", "EXT-015", "EXT-016", "EXT-017", "EXT-018",
+                "EXT-019", "EXT-020", "EXT-021", "EXT-022",
+            },
             "provider_documentation_required": blocker_id not in {"EXT-002", "EXT-020", "EXT-022"},
             "sample_data_required": blocker_id not in {"EXT-010", "EXT-011", "EXT-020", "EXT-022"},
             "credentials_or_entitlement_required": blocker_id in {"EXT-001", "EXT-008", "EXT-010", "EXT-011", "EXT-023"},
@@ -994,7 +1299,12 @@ def evaluate_production_readiness(
     screen_ok = all(authority.get(name, False) for name in ("screen_v2_subject", "screen_v2_approval", "screen_v2_merge_ancestry"))
     governing_ok = all(authority.values())
     evidence_blockers = ("PRODUCTION_EVIDENCE_MANIFEST_ABSENT",) if manifest is None else manifest.blockers(repository)
-    evidence_ok = manifest is not None and not evidence_blockers
+    decision_authority_blockers = production_decision_authority_blockers(repository)
+    evidence_ok = (
+        manifest is not None
+        and not evidence_blockers
+        and not decision_authority_blockers
+    )
     capabilities_ok = evidence_ok and all(manifest.capabilities.values())
     fields_ok = evidence_ok and not manifest.field_catalog.validate(repository)
     prerequisites = {
@@ -1020,7 +1330,7 @@ def evaluate_production_readiness(
         "PRODUCTION_EXECUTION_READY" if all_ready else None,
         prerequisites,
     )
-    blockers = list(evidence_blockers)
+    blockers = [*evidence_blockers, *decision_authority_blockers]
     blockers.extend(f"PREREQUISITE_FALSE:{name}" for name, value in prerequisites.items() if not value)
     return state, tuple(sorted(set(blockers))), authority
 
@@ -1033,6 +1343,7 @@ def production_readiness_preflight(
     return {
         "research_policy_resolved": True,
         "provider_data_evidence_resolved": state.provider_and_data_evidence_state is not None,
+        "researcher_decision_authority_resolved": not production_decision_authority_blockers(repository),
         "repository_identities_verified": state.repository_identity_state is not None,
         "production_execution_ready": state.production_execution_ready,
         "readiness_state": state.to_dict(),
