@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "artifact_status": "PROVIDER_SAMPLE_CANDIDATE_NOT_ADMITTED",
+  "provider_legal_name": "REPLACE_WITH_PROVIDER_LEGAL_NAME",
+  "provider": "REPLACE_WITH_STABLE_PROVIDER_ID",
+  "provider_product": "REPLACE_WITH_STABLE_PRODUCT_ID",
+  "product_version": "REPLACE_WITH_PRODUCT_VERSION",
+  "validation_start": "1900-01-01",
+  "validation_end": "1900-01-01",
+  "declared_at_utc": "1900-01-01T00:00:00Z",
+  "entitlement_identity": {
+    "evidence_id": "REPLACE_ENTITLEMENT_ID",
+    "provider": "REPLACE_WITH_STABLE_PROVIDER_ID",
+    "provider_product": "REPLACE_WITH_STABLE_PRODUCT_ID",
+    "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "source_native_vintage_identifier": "REPLACE_NATIVE_VINTAGE",
+    "acquired_at_utc": "1900-01-01T00:00:00Z",
+    "repository_relative_path": null
+  },
+  "archive_rights_identity": {
+    "evidence_id": "REPLACE_ARCHIVE_RIGHTS_ID",
+    "provider": "REPLACE_WITH_STABLE_PROVIDER_ID",
+    "provider_product": "REPLACE_WITH_STABLE_PRODUCT_ID",
+    "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "source_native_vintage_identifier": "REPLACE_NATIVE_VINTAGE",
+    "acquired_at_utc": "1900-01-01T00:00:00Z",
+    "repository_relative_path": null
+  },
+  "extract_identity": {
+    "evidence_id": "REPLACE_EXTRACT_ID",
+    "provider": "REPLACE_WITH_STABLE_PROVIDER_ID",
+    "provider_product": "REPLACE_WITH_STABLE_PRODUCT_ID",
+    "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "source_native_vintage_identifier": "REPLACE_NATIVE_VINTAGE",
+    "acquired_at_utc": "1900-01-01T00:00:00Z",
+    "repository_relative_path": null
+  },
+  "dataset_identities": {
+    "fundamentals": {
+      "evidence_id": "REPLACE_FUNDAMENTALS_ID",
+      "provider": "REPLACE_WITH_STABLE_PROVIDER_ID",
+      "provider_product": "REPLACE_WITH_STABLE_PRODUCT_ID",
+      "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "source_native_vintage_identifier": "REPLACE_NATIVE_VINTAGE",
+      "acquired_at_utc": "1900-01-01T00:00:00Z",
+      "repository_relative_path": null
+    },
+    "security_master": {
+      "evidence_id": "REPLACE_SECURITY_MASTER_ID",
+      "provider": "REPLACE_WITH_STABLE_PROVIDER_ID",
+      "provider_product": "REPLACE_WITH_STABLE_PRODUCT_ID",
+      "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "source_native_vintage_identifier": "REPLACE_NATIVE_VINTAGE",
+      "acquired_at_utc": "1900-01-01T00:00:00Z",
+      "repository_relative_path": null
+    },
+    "market_data": {
+      "evidence_id": "REPLACE_MARKET_DATA_ID",
+      "provider": "REPLACE_WITH_STABLE_PROVIDER_ID",
+      "provider_product": "REPLACE_WITH_STABLE_PRODUCT_ID",
+      "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "source_native_vintage_identifier": "REPLACE_NATIVE_VINTAGE",
+      "acquired_at_utc": "1900-01-01T00:00:00Z",
+      "repository_relative_path": null
+    },
+    "exchange_sessions": {
+      "evidence_id": "REPLACE_EXCHANGE_SESSIONS_ID",
+      "provider": "REPLACE_WITH_STABLE_PROVIDER_ID",
+      "provider_product": "REPLACE_WITH_STABLE_PRODUCT_ID",
+      "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "source_native_vintage_identifier": "REPLACE_NATIVE_VINTAGE",
+      "acquired_at_utc": "1900-01-01T00:00:00Z",
+      "repository_relative_path": null
+    },
+    "corporate_actions": {
+      "evidence_id": "REPLACE_CORPORATE_ACTIONS_ID",
+      "provider": "REPLACE_WITH_STABLE_PROVIDER_ID",
+      "provider_product": "REPLACE_WITH_STABLE_PRODUCT_ID",
+      "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "source_native_vintage_identifier": "REPLACE_NATIVE_VINTAGE",
+      "acquired_at_utc": "1900-01-01T00:00:00Z",
+      "repository_relative_path": null
+    },
+    "field_definitions": {
+      "evidence_id": "REPLACE_FIELD_DEFINITIONS_ID",
+      "provider": "REPLACE_WITH_STABLE_PROVIDER_ID",
+      "provider_product": "REPLACE_WITH_STABLE_PRODUCT_ID",
+      "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "source_native_vintage_identifier": "REPLACE_NATIVE_VINTAGE",
+      "acquired_at_utc": "1900-01-01T00:00:00Z",
+      "repository_relative_path": null
+    },
+    "identifiers_crosswalks": {
+      "evidence_id": "REPLACE_CROSSWALKS_ID",
+      "provider": "REPLACE_WITH_STABLE_PROVIDER_ID",
+      "provider_product": "REPLACE_WITH_STABLE_PRODUCT_ID",
+      "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "source_native_vintage_identifier": "REPLACE_NATIVE_VINTAGE",
+      "acquired_at_utc": "1900-01-01T00:00:00Z",
+      "repository_relative_path": null
+    }
+  },
+  "capabilities": [
+    {"capability_id":"CAP-001","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-002","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-003","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-004","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-005","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-006","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-007","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-008","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-009","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-010","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-011","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-012","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-013","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-014","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-015","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-016","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-017","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-018","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-019","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-020","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-021","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-022","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-023","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-024","supported":false,"documentation_identities":[],"sample_identities":[]},
+    {"capability_id":"CAP-025","supported":false,"documentation_identities":[],"sample_identities":[]}
+  ]
+}

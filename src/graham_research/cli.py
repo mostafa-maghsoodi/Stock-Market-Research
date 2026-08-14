@@ -27,6 +27,12 @@ from .entry000 import verify_entry000_publication
 from .screen import deterministic_outcome_free_dry_run
 from .specification import SpecificationRegister
 from .production import implementation_gap_audit, production_readiness_preflight
+from .admission import (
+    blocker_reclassification,
+    researcher_decision_packet,
+    validate_provider_sample_pack,
+    PROVIDER_CAPABILITY_SPECIFICATION,
+)
 
 
 def _load_facts_csv(path: str | Path) -> list[FactObservation]:
@@ -105,6 +111,16 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser(
         "production-audit-v2",
         help="print the complete 65-item Screen v2 implementation audit",
+    )
+    sample = commands.add_parser(
+        "validate-provider-sample-v2",
+        help="validate a non-production provider sample admission pack",
+    )
+    sample.add_argument("sample_pack")
+    sample.add_argument("--repository", required=True)
+    commands.add_parser(
+        "a22-admission-audit",
+        help="print A22 blocker, human-decision, and provider-capability packets",
     )
     return parser
 
@@ -203,6 +219,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     elif args.command == "production-audit-v2":
         print(json.dumps(implementation_gap_audit(), indent=2, sort_keys=True))
+    elif args.command == "validate-provider-sample-v2":
+        print(
+            json.dumps(
+                validate_provider_sample_pack(
+                    args.sample_pack,
+                    repository=args.repository,
+                ),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    elif args.command == "a22-admission-audit":
+        print(
+            json.dumps(
+                {
+                    "blocker_reclassification": blocker_reclassification(),
+                    "researcher_decisions": researcher_decision_packet(),
+                    "provider_capabilities": list(PROVIDER_CAPABILITY_SPECIFICATION),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
     return 0
 
 
