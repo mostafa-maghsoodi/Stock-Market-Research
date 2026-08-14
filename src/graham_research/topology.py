@@ -412,6 +412,38 @@ class DatabentoDefinitionRecord:
 
 
 @dataclass(frozen=True)
+class GovernedListingLifecycleBoundary:
+    """Exact evidence for an actual listing lifecycle boundary.
+
+    Provider coverage or the earliest locally observed definition row is not a
+    lifecycle boundary.  This object must identify the governed economic event
+    that began the continuous listing.
+    """
+
+    cik: str
+    share_class_figi: str
+    primary_exchange: str
+    lifecycle_start: datetime
+    boundary_type: str
+    evidence_identity: EvidenceIdentity
+
+    def __post_init__(self) -> None:
+        if not SEC_CIK_RE.fullmatch(self.cik):
+            raise ProductionContractError("lifecycle boundary CIK is invalid")
+        _text(self.share_class_figi, "lifecycle boundary share_class_figi")
+        if self.primary_exchange not in MIC_TO_DATABENTO_DATASET:
+            raise ProductionContractError("lifecycle boundary exchange is invalid")
+        _aware(self.lifecycle_start, "lifecycle_start")
+        if self.boundary_type not in {
+            "AUTHORITATIVE_INITIAL_LISTING",
+            "GOVERNED_EXCHANGE_TRANSFER",
+            "GOVERNED_CORPORATE_SUCCESSOR",
+        }:
+            raise ProductionContractError("lifecycle boundary type is not closed")
+        _text(self.evidence_identity.evidence_id, "lifecycle boundary evidence")
+
+
+@dataclass(frozen=True)
 class CrosswalkResolution:
     decision_at: datetime
     cik: str
@@ -426,6 +458,49 @@ class CrosswalkResolution:
     symbology_evidence_identity: EvidenceIdentity
     definition_evidence_identity: EvidenceIdentity
     identity_authority_status: str = "RD-CROSSWALK-001_REQUIRED"
+    symbology_effective_start: datetime | None = None
+    symbology_effective_end: datetime | None = None
+    definition_effective_start: datetime | None = None
+    definition_effective_end: datetime | None = None
+    # Provider observation and actual governed lifecycle boundaries are
+    # deliberately separate.  The former is provenance only and can be
+    # left-censored; the latter is stable identity material and requires exact
+    # boundary evidence.
+    earliest_observed_provider_record: datetime | None = None
+    actual_governed_lifecycle_start: datetime | None = None
+    lifecycle_boundary_evidence_identity: EvidenceIdentity | None = None
+
+
+def _earliest_observed_contiguous_provider_record(
+    matched: DatabentoDefinitionRecord,
+    definitions: Sequence[DatabentoDefinitionRecord],
+) -> datetime:
+    """Return the earliest observed provider row in the matched chain.
+
+    This value is provenance only.  It must never be promoted to the actual
+    governed listing lifecycle start because provider coverage can be
+    left-censored.
+    """
+
+    same_listing = sorted(
+        (
+            item for item in definitions
+            if item.dataset == matched.dataset
+            and item.publisher_id == matched.publisher_id
+            and item.instrument_id == matched.instrument_id
+            and item.exchange == matched.exchange
+        ),
+        key=lambda item: (item.effective_start, item.effective_end),
+    )
+    start = matched.effective_start
+    changed = True
+    while changed:
+        changed = False
+        for item in same_listing:
+            if item.effective_start < start <= item.effective_end:
+                start = item.effective_start
+                changed = True
+    return start
 
 
 def resolve_massive_databento_crosswalk(
@@ -434,6 +509,7 @@ def resolve_massive_databento_crosswalk(
     definitions: Sequence[DatabentoDefinitionRecord],
     *,
     decision_at: datetime,
+    lifecycle_boundary: GovernedListingLifecycleBoundary | None = None,
 ) -> CrosswalkResolution:
     """Resolve a unique date+venue+symbology+definition match, never ticker alone."""
 
@@ -467,6 +543,21 @@ def resolve_massive_databento_crosswalk(
     if len(matches) != 1:
         raise ProductionContractError("CROSSWALK_AMBIGUOUS")
     matched_mapping, definition = matches[0]
+    earliest_observed_provider_record = _earliest_observed_contiguous_provider_record(
+        definition, definitions
+    )
+    actual_governed_lifecycle_start = None
+    lifecycle_boundary_evidence_identity = None
+    if lifecycle_boundary is not None:
+        if (
+            lifecycle_boundary.cik != massive.cik
+            or lifecycle_boundary.share_class_figi != massive.share_class_figi
+            or lifecycle_boundary.primary_exchange != massive.primary_exchange
+            or lifecycle_boundary.lifecycle_start > decision_at
+        ):
+            raise ProductionContractError("LISTING_LIFECYCLE_BOUNDARY_MISMATCH")
+        actual_governed_lifecycle_start = lifecycle_boundary.lifecycle_start
+        lifecycle_boundary_evidence_identity = lifecycle_boundary.evidence_identity
     return CrosswalkResolution(
         decision_at=decision_at,
         cik=massive.cik,
@@ -480,6 +571,13 @@ def resolve_massive_databento_crosswalk(
         massive_evidence_identity=massive.evidence_identity,
         symbology_evidence_identity=matched_mapping.evidence_identity,
         definition_evidence_identity=definition.evidence_identity,
+        symbology_effective_start=matched_mapping.start_at,
+        symbology_effective_end=matched_mapping.end_at,
+        definition_effective_start=definition.effective_start,
+        definition_effective_end=definition.effective_end,
+        earliest_observed_provider_record=earliest_observed_provider_record,
+        actual_governed_lifecycle_start=actual_governed_lifecycle_start,
+        lifecycle_boundary_evidence_identity=lifecycle_boundary_evidence_identity,
     )
 
 
@@ -555,7 +653,7 @@ class DatabentoCloseStatistic:
     instrument_id: int
     ts_event: datetime
     ts_recv: datetime
-    ts_ref: datetime
+    ts_ref: datetime | None
     price_nanos: int
     stat_type: int
     update_action: int
@@ -568,9 +666,10 @@ class DatabentoCloseStatistic:
         for value, label in (
             (self.ts_event, "statistics ts_event"),
             (self.ts_recv, "statistics ts_recv"),
-            (self.ts_ref, "statistics ts_ref"),
         ):
             _aware(value, label)
+        if self.ts_ref is not None:
+            _aware(self.ts_ref, "statistics ts_ref")
         if self.publisher_id <= 0 or self.instrument_id <= 0 or self.sequence < 0:
             raise ProductionContractError("statistics native identity is invalid")
         if self.stat_type != 11:
@@ -580,6 +679,12 @@ class DatabentoCloseStatistic:
         if self.price_nanos in {DBN_UNDEF_PRICE, -DBN_UNDEF_PRICE} or self.price_nanos <= 0:
             raise ProductionContractError("statistics close price is undefined")
         _provider_matches(self.evidence_identity, "DATABENTO", self.dataset)
+
+    @property
+    def closing_event_at(self) -> datetime:
+        # Databento does not require ts_ref for close statistic type 11.  When
+        # the venue supplies no reference timestamp, ts_event is authoritative.
+        return self.ts_ref if self.ts_ref is not None else self.ts_event
 
 
 @dataclass(frozen=True)
@@ -606,7 +711,7 @@ def resolve_raw_primary_close(
         if item.dataset == crosswalk.databento_dataset
         and item.publisher_id == crosswalk.databento_publisher_id
         and item.instrument_id == crosswalk.databento_instrument_id
-        and session.session_open <= item.ts_ref <= session.session_close
+        and session.session_open <= item.closing_event_at <= session.session_close
     ]
     if any(item.update_action == 2 for item in relevant):
         raise ProductionContractError("RAW_PRIMARY_CLOSE_DELETION_PRESENT")
@@ -666,11 +771,20 @@ class RawVolumePolicy:
     excluded_condition_codes: frozenset[str]
     include_auction_prints: bool
     correction_behavior: str
+    source_semantics: str = "DATABENTO_PROP_FEED_NO_TRADE_CONDITIONS"
 
     def __post_init__(self) -> None:
         _text(self.authority_identity, "raw-volume authority identity")
         if self.included_condition_codes & self.excluded_condition_codes:
             raise ProductionContractError("trade-condition policy overlaps")
+        if self.source_semantics != "DATABENTO_PROP_FEED_NO_TRADE_CONDITIONS":
+            raise ProductionContractError("raw-volume source semantics are unresolved")
+        if self.included_condition_codes or self.excluded_condition_codes:
+            raise ProductionContractError(
+                "Databento direct equity feeds do not supply trade-condition codes"
+            )
+        if self.include_auction_prints is not True:
+            raise ProductionContractError("raw primary-session volume includes auction prints")
         if self.correction_behavior != "FAIL_ON_CANCEL_OR_CORRECTION":
             raise ProductionContractError("raw-volume correction behavior is unresolved")
 
@@ -712,22 +826,14 @@ def resolve_raw_primary_volume(
     for item in selected:
         if item.correction_state != "ORIGINAL":
             raise ProductionContractError("RAW_VOLUME_CORRECTION_REQUIRES_PROVIDER_RULE")
-        unknown = set(item.condition_codes) - (
-            set(policy.included_condition_codes) | set(policy.excluded_condition_codes)
-        )
-        if unknown:
-            raise ProductionContractError("RAW_VOLUME_TRADE_CONDITION_UNRESOLVED")
-        if set(item.condition_codes) & set(policy.excluded_condition_codes):
-            continue
-        if item.is_auction and not policy.include_auction_prints:
-            continue
+        if item.condition_codes:
+            raise ProductionContractError("RAW_VOLUME_UNDOCUMENTED_TRADE_CONDITION")
         total += item.size
     if total <= 0:
         raise ProductionContractError("RAW_PRIMARY_VOLUME_EMPTY_AFTER_POLICY")
     included = [
         item for item in selected
-        if not (set(item.condition_codes) & set(policy.excluded_condition_codes))
-        and (policy.include_auction_prints or not item.is_auction)
+        if not item.condition_codes
     ]
     return ResolvedPrimaryVolume(
         listing_instrument_id=crosswalk.databento_instrument_id,

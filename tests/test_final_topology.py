@@ -22,6 +22,7 @@ from graham_research.topology import (
     DatabentoSymbologyInterval,
     DatabentoTradeRecord,
     FinancingComponents,
+    GovernedListingLifecycleBoundary,
     MassiveSnapshotRecord,
     OfficialSessionRecord,
     RawVolumePolicy,
@@ -173,6 +174,37 @@ def test_crosswalk_requires_one_unique_date_venue_symbology_definition_match() -
     result = crosswalk()
     assert result.databento_instrument_id == 101
     assert result.identity_authority_status == "RD-CROSSWALK-001_REQUIRED"
+    assert result.earliest_observed_provider_record == datetime(2025, 1, 1, tzinfo=UTC)
+    assert result.actual_governed_lifecycle_start is None
+
+
+def test_contiguous_definition_refresh_tracks_provider_observation_only() -> None:
+    boundary = datetime(2025, 1, 1, tzinfo=UTC)
+    earlier = definition(
+        effective_start=datetime(2024, 1, 2, 14, 30, tzinfo=UTC),
+        effective_end=boundary,
+    )
+    current = definition(effective_start=boundary)
+    result = resolve_massive_databento_crosswalk(
+        massive(), [mapping()], [earlier, current], decision_at=DECISION
+    )
+    assert result.earliest_observed_provider_record == earlier.effective_start
+    assert result.actual_governed_lifecycle_start is None
+
+
+def test_governed_lifecycle_boundary_is_distinct_from_provider_coverage() -> None:
+    actual_start = datetime(2020, 1, 2, 14, 30, tzinfo=UTC)
+    boundary = GovernedListingLifecycleBoundary(
+        "0000000001", "BBG-CLASS", "XNAS", actual_start,
+        "AUTHORITATIVE_INITIAL_LISTING", evidence("SEC_EDGAR", "FILING_ARCHIVE"),
+    )
+    result = resolve_massive_databento_crosswalk(
+        massive(), [mapping()], [definition()], decision_at=DECISION,
+        lifecycle_boundary=boundary,
+    )
+    assert result.actual_governed_lifecycle_start == actual_start
+    assert result.earliest_observed_provider_record != actual_start
+    assert result.lifecycle_boundary_evidence_identity == boundary.evidence_identity
 
 
 def test_crosswalk_missing_and_ambiguous_fail_closed() -> None:
@@ -212,6 +244,13 @@ def test_raw_close_requires_exact_primary_venue_statistic() -> None:
     resolved = resolve_raw_primary_close(crosswalk(), session(), [item])
     assert resolved.price == 12.5
     assert resolved.evidence_identity.evidence_id == "DATABENTO-XNAS.ITCH"
+    without_reference_timestamp = DatabentoCloseStatistic(
+        "XNAS.ITCH", 7, 101, DECISION, DECISION, None,
+        12_500_000_000, 11, 1, 43, evidence("DATABENTO", "XNAS.ITCH"),
+    )
+    assert resolve_raw_primary_close(
+        crosswalk(), session(), [without_reference_timestamp]
+    ).price == 12.5
     with pytest.raises(ProductionContractError, match="WRONG_PRIMARY_VENUE"):
         resolve_raw_primary_close(crosswalk(), session(exchange="XNYS"), [item])
 
@@ -232,24 +271,24 @@ def test_databento_session_markers_must_match_official_session() -> None:
         validate_session_markers(session(), markers[:1])
 
 
-def test_raw_volume_is_policy_bound_and_rejects_unknown_conditions() -> None:
+def test_raw_volume_uses_direct_feed_semantics_without_invented_conditions() -> None:
     trade = DatabentoTradeRecord(
         "XNAS.ITCH", 7, 101, datetime(2025, 6, 30, 15, tzinfo=UTC),
-        datetime(2025, 6, 30, 15, tzinfo=UTC), 1, 100, "T", ("REGULAR",), False,
+        datetime(2025, 6, 30, 15, tzinfo=UTC), 1, 100, "T", (), False,
         "ORIGINAL", evidence("DATABENTO", "XNAS.ITCH"),
     )
-    policy = RawVolumePolicy("authority", frozenset({"REGULAR"}), frozenset(), True,
+    policy = RawVolumePolicy("authority", frozenset(), frozenset(), True,
                              "FAIL_ON_CANCEL_OR_CORRECTION")
     assert resolve_raw_primary_volume(
         crosswalk(), session(), [trade], policy=policy
     ).volume == 100
-    unresolved = DatabentoTradeRecord(
+    invented = DatabentoTradeRecord(
         "XNAS.ITCH", 7, 101, datetime(2025, 6, 30, 15, tzinfo=UTC),
         datetime(2025, 6, 30, 15, tzinfo=UTC), 2, 100, "T", ("UNKNOWN",), False,
         "ORIGINAL", evidence("DATABENTO", "XNAS.ITCH"),
     )
-    with pytest.raises(ProductionContractError, match="CONDITION_UNRESOLVED"):
-        resolve_raw_primary_volume(crosswalk(), session(), [unresolved], policy=policy)
+    with pytest.raises(ProductionContractError, match="UNDOCUMENTED_TRADE_CONDITION"):
+        resolve_raw_primary_volume(crosswalk(), session(), [invented], policy=policy)
 
 
 def test_multiclass_market_cap_and_missing_shares() -> None:

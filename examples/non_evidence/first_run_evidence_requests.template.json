@@ -1,0 +1,44 @@
+{
+  "artifact_status": "NON_EVIDENCE_REQUEST_TEMPLATE",
+  "requests": [
+    {
+      "endpoint": "https://data.sec.gov/submissions/CIK0000000000.json",
+      "historical_effective_end": "2025-06-30",
+      "historical_effective_start": "2018-05-01",
+      "provider": "SEC_EDGAR",
+      "provider_product": "FILING_ARCHIVE",
+      "request_id": "REPLACE_WITH_EXACT_SEC_REQUEST_ID",
+      "request_parameters": {},
+      "source_native_vintage_identifier": "REPLACE_WITH_SEC_ACCESSION_OR_ARCHIVE_VINTAGE"
+    },
+    {
+      "endpoint": "https://api.massive.com/v3/reference/tickers",
+      "historical_effective_end": "2025-06-30",
+      "historical_effective_start": "2025-06-30",
+      "provider": "MASSIVE",
+      "provider_product": "STOCKS_REFERENCE",
+      "request_id": "REPLACE_WITH_EXACT_MASSIVE_REQUEST_ID",
+      "request_parameters": {
+        "active": true,
+        "date": "2025-06-30",
+        "market": "stocks"
+      },
+      "source_native_vintage_identifier": "REPLACE_WITH_MASSIVE_REQUEST_OR_ARCHIVE_ID"
+    },
+    {
+      "endpoint": "https://hist.databento.com/v0/timeseries.get_range",
+      "historical_effective_end": "2025-06-30",
+      "historical_effective_start": "2025-06-27",
+      "provider": "DATABENTO",
+      "provider_product": "XNAS.ITCH",
+      "request_id": "REPLACE_WITH_EXACT_DATABENTO_REQUEST_ID",
+      "request_parameters": {
+        "dataset": "XNAS.ITCH",
+        "schema": "statistics",
+        "start": "2025-06-27"
+      },
+      "source_native_vintage_identifier": "REPLACE_WITH_DATABENTO_BATCH_OR_REQUEST_ID"
+    }
+  ],
+  "schema_version": 1
+}
